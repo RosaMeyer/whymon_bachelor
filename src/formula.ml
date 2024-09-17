@@ -31,7 +31,10 @@ type t =
   | Always of Interval.t * t
   | Since of Interval.t * t * t
   | Until of Interval.t * t * t
-(* Added regex *)
+  (* TODO: Does this below makes snese? *)
+  | Frex of Interval.t * regex
+  | Prex of Interval.t * regex
+(* TODO: Should anything else be added here? *)
 and regex =
   | Wild
   | Test of t

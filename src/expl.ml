@@ -133,6 +133,9 @@ end
 
 module Proof = struct
 
+(* Proof module, defining types for a logical proof system with temporal operators, 
+predicate logic, and more advanced features like handling regular expressions *)
+
   type sp =
     | STT of int
     | SEqConst of int * string * Dom.t
@@ -156,6 +159,10 @@ module Proof = struct
     | SAlways of int * int * sp Fdeque.t
     | SSince of sp * sp Fdeque.t
     | SUntil of sp * sp Fdeque.t
+    (* TODO: integrate existing regex constructs (Wild, Test, Plus, Concat, Star) into the proof system? 
+    Added to sp so that static propositions can include proofs involving regular expressions *)
+    | SFrex of Interval.t * rsp  (* Frex in sp, using rsp *)
+    | SPrex of Interval.t * rsp  (* Prex in sp, using rsp *)
   and vp =
     | VFF of int
     | VEqConst of int * string * Dom.t
@@ -186,6 +193,80 @@ module Proof = struct
     | VSinceInf of int * int * vp Fdeque.t
     | VUntil of int * vp * vp Fdeque.t
     | VUntilInf of int * int * vp Fdeque.t
+    (* TODO: integrate existing regex constructs (Wild, Test, Plus, Concat, Star) into the proof system? 
+    Added to vp to allow variable propositions to reference proofs involving regular expressions *)
+    | VFrex of Interval.t * rvp  (* Frex in vp, using rvp *)
+    | VPrex of Interval.t * rvp  (* Prex in vp, using rvp *)
+  (* TODO: Finish/checking proof system for regex? *)
+  and rsp =
+    | STT of int
+    | SEqConst of int * string * Dom.t
+    | SPred of int * string * Term.t list
+    | SNeg of vp
+    | SOrL of sp
+    | SOrR of sp
+    | SAnd of sp * sp
+    | SImpL of vp
+    | SImpR of sp
+    | SIffSS of sp * sp
+    | SIffVV of vp * vp
+    | SExists of string * Dom.t * sp
+    | SForall of string * (sp Part.t)
+    | SPrev of sp
+    | SNext of sp
+    | SOnce of int * sp
+    | SEventually of int * sp
+    | SHistorically of int * int * sp Fdeque.t
+    | SHistoricallyOut of int
+    | SAlways of int * int * sp Fdeque.t
+    | SSince of sp * sp Fdeque.t
+    | SUntil of sp * sp Fdeque.t
+    (* Regex extension *)
+    | SFrex of Interval.t * rsp   (* Frex proof for regular expressions *)
+    | SPrex of Interval.t * rsp   (* Prex proof for regular expressions *)
+    | SWild                       (* Proof for wildcard regex *)
+    | STest of rsp                (* Proof for 'Test' operator in regex *)
+    | SPlus of rsp * rsp          (* Proof for 'Plus' (union) in regex *)
+    | SConcat of rsp * rsp        (* Proof for 'Concat' in regex *)
+    | SStar of rsp                (* Proof for 'Star' (Kleene star?) in regex *)
+  and rvp =
+    | VFF of int
+    | VEqConst of int * string * Dom.t
+    | VPred of int * string * Term.t list
+    | VNeg of sp
+    | VOr of vp * vp
+    | VAndL of vp
+    | VAndR of vp
+    | VImp of sp * vp
+    | VIffSV of sp * vp
+    | VIffVS of vp * sp
+    | VExists of string * (vp Part.t)
+    | VForall of string * Dom.t * vp
+    | VPrev of vp
+    | VPrev0
+    | VPrevOutL of int
+    | VPrevOutR of int
+    | VNext of vp
+    | VNextOutL of int
+    | VNextOutR of int
+    | VOnceOut of int
+    | VOnce of int * int * vp Fdeque.t
+    | VEventually of int * int * vp Fdeque.t
+    | VHistorically of int * vp
+    | VAlways of int * vp
+    | VSinceOut of int
+    | VSince of int * vp * vp Fdeque.t
+    | VSinceInf of int * int * vp Fdeque.t
+    | VUntil of int * vp * vp Fdeque.t
+    | VUntilInf of int * int * vp Fdeque.t
+    (* Regex extension *)
+    | VFrex of Interval.t * rvp   (* Frex proof for regular expressions *)
+    | VPrex of Interval.t * rvp   (* Prex proof for regular expressions *)
+    | VWild                       (* Proof for wildcard regex *)
+    | VTest of rvp                (* Proof for 'Test' operator in regex *)
+    | VPlus of rvp * rvp          (* Proof for 'Plus' (union) in regex *)
+    | VConcat of rvp * rvp        (* Proof for 'Concat' in regex *)
+    | VStar of rvp                (* Proof for 'Star' in regex *)
 
   type t = S of sp | V of vp
 
