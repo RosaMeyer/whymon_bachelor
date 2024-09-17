@@ -31,6 +31,14 @@ type t =
   | Always of Interval.t * t
   | Since of Interval.t * t * t
   | Until of Interval.t * t * t
+(* Added regex *)
+and regex =
+  | Wild
+  | Test of t
+  | Plus of regex * regex
+  | Concat of regex * regex
+  | Star of regex
+
 
 let tt = TT
 let ff = FF
