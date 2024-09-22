@@ -425,7 +425,8 @@ predicate logic, and more advanced features like handling regular expressions *)
     | VFrex (_, rvp) -> vr_at rvp
     | VPrex (_, rvp) -> vr_at rvp
 
-  (* Function to handle regular expressions for s_at *)
+  (* Function to handle regular expressions for s_at 
+  Regex should be pairs? *)
   and sr_at = function
     | SWild tp -> tp
     | STest sp -> s_at sp
@@ -433,7 +434,7 @@ predicate logic, and more advanced features like handling regular expressions *)
     | SPlusR rsp -> sr_at rsp
     | SConcat (rsp1, _) -> sr_at rsp1
     | SStarEps tp -> tp
-    | SStar rsp -> sr_at (Fdeque.peek_front_exn rsp)
+    | SStar rsp -> 
 
   (* Function to handle regular expressions for v_at *)
   and vr_at = function
@@ -810,6 +811,23 @@ predicate logic, and more advanced features like handling regular expressions *)
       | VSinceInf (_, _, vp2s) -> 1 + sum v vp2s
       | VUntil (_, vp1, vp2s) -> 1 + v vp1 + sum v vp2s
       | VUntilInf (_, _, vp2s) -> 1 + sum v vp2s
+
+    and sr = function
+      | SWild _ -> 1
+      | STest sp -> 1 + sr sp
+      | SPlusL rsp1 -> 1 + sr rsp1
+      | SPlusR rsp2 -> 1 + sr rsp2
+      | SConcat (rsp1, rsp2) -> 1 + sr rsp1 + sr rsp2
+      | SStarEps _ -> 1
+      | SStar rsp -> 1 + sum sr rsp (* List of regex proofs *)
+
+    and vr = function
+      | VWild _ -> 1
+      | VTest vp -> 1 + vr vp
+      | VTestNeq (vp1, vp2) -> 1 + vr vp1 + vr vp2
+      | VPlus (vrp1, vrp2) -> 1 + vr vrp1 + vr vrp2
+      | VConcat (vrp1, vrp2) -> 1 + sum vr vrp1 + sum vr vrp2 (* List of regex proofs *)
+      | VStar vrp -> 1 + sum vr vrp (* List of regex proofs *)
 
     let p = function
       | S s_p -> s s_p
