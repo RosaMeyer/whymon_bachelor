@@ -31,6 +31,15 @@ type t =
   | Always of Interval.t * t
   | Since of Interval.t * t * t
   | Until of Interval.t * t * t
+  | Frex of Interval.t * regex
+  | Prex of Interval.t * regex
+(* Constructors for regex *)
+and regex =
+  | Wild
+  | Test of t
+  | Plus of regex * regex
+  | Concat of regex * regex
+  | Star of regex
 
 val tt: t
 val ff: t
