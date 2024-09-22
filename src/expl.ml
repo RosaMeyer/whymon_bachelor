@@ -161,8 +161,9 @@ predicate logic, and more advanced features like handling regular expressions *)
     | SUntil of sp * sp Fdeque.t
     (* TODO: integrate existing regex constructs (Wild, Test, Plus, Concat, Star) into the proof system? 
     Added to sp so that static propositions can include proofs involving regular expressions *)
-    | SFrex of rsp  (* Frex in sp, using rsp *)
-    | SPrex of rsp  (* Prex in sp, using rsp *)
+    | SPrexOut of int 
+    | SPrex of int * rsp Fdeque.t
+    | SFrex of int * rsp Fdeque.t 
   and vp =
     | VFF of int
     | VEqConst of int * string * Dom.t
@@ -384,6 +385,11 @@ predicate logic, and more advanced features like handling regular expressions *)
                             else s_at (Fdeque.peek_back_exn sp1s)
     | SUntil (sp2, sp1s) -> if Fdeque.is_empty sp1s then s_at sp2
                             else s_at (Fdeque.peek_front_exn sp1s)
+    (* TODO: Regular expression cases for s_at needed? *)
+    | SPrexOut tp -> tp
+    | SPrex (_, rsp) -> sr_at rsp
+    | SFrex (_, rsp) -> sr_at rsp
+
   and v_at = function
     | VFF tp -> tp
     | VEqConst (tp, _, _) -> tp
@@ -414,6 +420,29 @@ predicate logic, and more advanced features like handling regular expressions *)
     | VSinceInf (tp, _, _) -> tp
     | VUntil (tp, _, _) -> tp
     | VUntilInf (tp, _, _) -> tp
+    (* TODO: Regular expression cases for v_at needed? *)
+    | VPrexOut tp -> tp
+    | VFrex (_, rvp) -> vr_at rvp
+    | VPrex (_, rvp) -> vr_at rvp
+
+  (* Function to handle regular expressions for s_at *)
+  and sr_at = function
+    | SWild tp -> tp
+    | STest sp -> s_at sp
+    | SPlusL rsp -> sr_at rsp
+    | SPlusR rsp -> sr_at rsp
+    | SConcat (rsp1, _) -> sr_at rsp1
+    | SStarEps tp -> tp
+    | SStar rsp -> sr_at (Fdeque.peek_front_exn rsp)
+
+  (* Function to handle regular expressions for v_at *)
+  and vr_at = function
+    | VWild 
+    | VTest
+    | VTestNeq
+    | VPlus
+    | VConcat
+    | VStar 
 
   let p_at = function
     | S s_p -> s_at s_p
