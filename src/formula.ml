@@ -31,10 +31,10 @@ type t =
   | Always of Interval.t * t
   | Since of Interval.t * t * t
   | Until of Interval.t * t * t
-  (* TODO: Does this below makes snese? *)
+  (* TODO: Added *)
   | Frex of Interval.t * regex
   | Prex of Interval.t * regex
-(* TODO: Should anything else be added here? *)
+(* TODO: Added constructor for regex *)
 and regex =
   | Wild
   | Test of t
@@ -88,7 +88,20 @@ let quant_check x f =
     | Imp (f1, f2)
     | Iff (f1, f2)
     | Since (_, f1, f2)
-    | Until (_, f1, f2) -> quant_check_rec f1 || quant_check_rec f2 in
+    | Until (_, f1, f2) -> quant_check_rec f1 || quant_check_rec f2
+  (* TODO: Added cases for regex *)
+  | Frex (_, r)
+    | Prex (_, r) ->
+      (* Recursively handle free variables in regular expressions *)
+      let rec regex_fv = function
+        | Wild -> false                                  (* Wild has no free variables *)
+        | Test f -> quant_check_rec f                    (* Use quant_check_rec on the formula in Test *)
+        | Plus (r1, r2)                                  (* Plus only depends on the free variables in r1 and r2, need to check if x occurs in either r1 or r2 *)
+        | Concat (r1, r2) -> regex_fv r1 || regex_fv r2  (* Union of two regexes *)
+        | Star r -> regex_fv r                           (* Star only depends on the free variables in r *)
+      in
+      regex_fv r
+  in
   if not (quant_check_rec f) then
     raise (Invalid_argument (Printf.sprintf "bound variable %s does not appear in subformula" x))
 
@@ -111,8 +124,23 @@ let equal x y = match x, y with
     | Always (i, f), Always (i', f') -> Interval.equal i i' && phys_equal f f'
   | Since (i, f, g), Since (i', f', g')
     | Until (i, f, g), Until (i', f', g') -> Interval.equal i i' && phys_equal f f' && phys_equal g g'
+  (* TODO: Added cases for Frex and Prex - check equality of both the intervals and the regular expressions *)
+  | Frex (i, r), Frex (i', r')
+    | Prex (i, r), Prex (i', r') -> Interval.equal i i' && (
+      (* Helper *)
+      let rec regex_equal x y = match x, y with
+        | Wild, Wild -> true
+        | Test f, Test f' -> phys_equal f f' (* TODO: I'm not sure if this makes sense? *)
+        | Plus (r1, r2), Plus (r1', r2')
+        | Concat (r1, r2), Concat (r1', r2') -> regex_equal r1 r1' && regex_equal r2 r2'
+        | Star r, Star r' -> regex_equal r r'
+        | _ -> false 
+      in 
+      regex_equal r r')
+  (* TODO: If removed, there's an error... is it due to wrong implementation from my side? *)
   | _ -> false
 
+(* fv: free variable *)  
 let rec fv = function
   | TT | FF -> Set.empty (module String)
   | EqConst (x, _) -> Set.of_list (module String) [x]
@@ -132,6 +160,18 @@ let rec fv = function
     | Iff (f1, f2)
     | Since (_, f1, f2)
     | Until (_, f1, f2) -> Set.union (fv f1) (fv f2)
+  (* TODO: Added cases for Frex and Prex *)
+  | Frex (_, r)
+    | Prex (_, r) -> 
+      (* Helper *)
+      let rec regex_fv = function
+        | Wild -> Set.empty (module String)
+        | Test f -> fv f
+        | Plus (r1, r2)
+        | Concat (r1, r2) -> Set.union (regex_fv r1) (regex_fv r2) (* recursively compute the union of free variables in their subcomponents *)
+        | Star r -> regex_fv r
+      in 
+      regex_fv r
 
 let check_bindings f =
   let fv_f = fv f in
