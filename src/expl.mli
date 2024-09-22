@@ -134,7 +134,7 @@ module Proof : sig
 
   val s_at: sp -> int
   val v_at: vp -> int
-  (* TODO: Is this correctly added? *)
+  (* TODO: Is this correctly added? Regex should be pairs? *)
   val sr_at: rsp Fdeque.t -> int
   val vr_at: rvp Fdeque.t -> int
   val p_at: t -> int
