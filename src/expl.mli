@@ -62,6 +62,9 @@ module Proof : sig
     | SAlways of int * int * sp Fdeque.t
     | SSince of sp * sp Fdeque.t
     | SUntil of sp * sp Fdeque.t
+    | SPrexOut of int 
+    | SPrex of int * rsp Fdeque.t
+    | SFrex of int * rsp Fdeque.t 
   and vp =
     | VFF of int
     | VEqConst of int * string * Dom.t
@@ -92,6 +95,26 @@ module Proof : sig
     | VSinceInf of int * int * vp Fdeque.t
     | VUntil of int * vp * vp Fdeque.t
     | VUntilInf of int * int * vp Fdeque.t
+    | VPrexOut of int 
+    | VPrex of int * rvp Fdeque.t
+    | VFrex of int * rvp Fdeque.t
+  and rsp =
+    (* Regex extension *)
+    | SWild of int                      
+    | STest of sp
+    | SPlusL of rsp
+    | SPlusR of rsp               
+    | SConcat of rsp * rsp        
+    | SStarEps of int               
+    | SStar of rsp Fdeque.t
+  and rvp =
+    (* Regex extension *)
+    | VWild of int * int
+    | VTest of vp  
+    | VTestNeq of int * int  
+    | VPlus of rvp * rvp
+    | VConcat of rvp Fdeque.t
+    | VStar of rvp Fdeque.t
 
   type t = S of sp | V of vp
 
@@ -111,6 +134,9 @@ module Proof : sig
 
   val s_at: sp -> int
   val v_at: vp -> int
+  (* TODO: Is this correctly added? *)
+  val sr_at: rsp -> int
+  val vr_at: rvp -> int
   val p_at: t -> int
 
   val s_ltp: sp -> int
