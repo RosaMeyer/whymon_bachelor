@@ -427,14 +427,15 @@ predicate logic, and more advanced features like handling regular expressions *)
 
   (* Function to handle regular expressions for s_at 
   Regex should be pairs? *)
+
   and sr_at = function
-    | SWild tp -> tp
+    | SWild _ -> 0
     | STest sp -> s_at sp
     | SPlusL rsp -> sr_at rsp
     | SPlusR rsp -> sr_at rsp
-    | SConcat (rsp1, _) -> sr_at rsp1
-    | SStarEps tp -> tp
-    | SStar rsp -> 
+    | SConcat (rsp1, _) -> 
+    | SStarEps tp -> 
+    | SStar rsp ->
 
   (* Function to handle regular expressions for v_at *)
   and vr_at = function
@@ -443,7 +444,7 @@ predicate logic, and more advanced features like handling regular expressions *)
     | VTestNeq
     | VPlus
     | VConcat
-    | VStar 
+    | VStar
 
   let p_at = function
     | S s_p -> s_at s_p
