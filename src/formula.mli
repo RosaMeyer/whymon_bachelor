@@ -68,12 +68,8 @@ val quant_check: string -> t -> unit
 val fv: t -> (String.t, Base.String.comparator_witness) Base.Set.t
 val check_bindings: t -> bool
 
-val hp: t -> int
-val hf: t -> int
-val height: t -> int
-
-val subfs_bfs: t list -> t list
 val subfs_dfs: t -> t list
+val subfs_dfs_regex: regex -> t list
 val subfs_scope: t -> int -> (int * (int list * int list)) list
 val preds: t -> t list
 val pred_names: t -> (string, Base.String.comparator_witness) Base.Set.t
