@@ -212,24 +212,34 @@ let check_bindings f =
   snd (check_bindings_rec (Set.empty (module String)) f)
 
 (* Computes columns in table 
-Formula: Either.first, regex: Either.second - types*)
+Either.first: used for formulas, Either.second: used for regex *)
 let rec subfs_dfs h = match h with
-  | TT | FF | EqConst _ | Predicate _ -> [h]
-  | Neg f -> [h] @ (subfs_dfs f)
-  | And (f, g) -> [h] @ (subfs_dfs f) @ (subfs_dfs g)
-  | Or (f, g) -> [h] @ (subfs_dfs f) @ (subfs_dfs g)
-  | Imp (f, g) -> [h] @ (subfs_dfs f) @ (subfs_dfs g)
-  | Iff (f, g) -> [h] @ (subfs_dfs f) @ (subfs_dfs g)
-  | Exists (_, f) -> [h] @ (subfs_dfs f)
-  | Forall (_, f) -> [h] @ (subfs_dfs f)
-  | Prev (_, f) -> [h] @ (subfs_dfs f)
-  | Next (_, f) -> [h] @ (subfs_dfs f)
-  | Once (_, f) -> [h] @ (subfs_dfs f)
-  | Eventually (_, f) -> [h] @ (subfs_dfs f)
-  | Historically (_, f) -> [h] @ (subfs_dfs f)
-  | Always (_, f) -> [h] @ (subfs_dfs f)
-  | Since (_, f, g) -> [h] @ (subfs_dfs f) @ (subfs_dfs g)
-  | Until (_, f, g) -> [h] @ (subfs_dfs f) @ (subfs_dfs g)
+  | TT | FF | EqConst _ | Predicate _ -> [Either.first h]
+  | Neg f -> [Either.first h] @ (subfs_dfs f)
+  | And (f, g) -> [Either.first h] @ (subfs_dfs f) @ (subfs_dfs g)
+  | Or (f, g) -> [Either.first h] @ (subfs_dfs f) @ (subfs_dfs g)
+  | Imp (f, g) -> [Either.first h] @ (subfs_dfs f) @ (subfs_dfs g)
+  | Iff (f, g) -> [Either.first h] @ (subfs_dfs f) @ (subfs_dfs g)
+  | Exists (_, f) -> [Either.first h] @ (subfs_dfs f)
+  | Forall (_, f) -> [Either.first h] @ (subfs_dfs f)
+  | Prev (_, f) -> [Either.first h] @ (subfs_dfs f)
+  | Next (_, f) -> [Either.first h] @ (subfs_dfs f)
+  | Once (_, f) -> [Either.first h] @ (subfs_dfs f)
+  | Eventually (_, f) -> [Either.first h] @ (subfs_dfs f)
+  | Historically (_, f) -> [Either.first h] @ (subfs_dfs f)
+  | Always (_, f) -> [Either.first h] @ (subfs_dfs f)
+  | Since (_, f, g) -> [Either.first h] @ (subfs_dfs f) @ (subfs_dfs g)
+  | Until (_, f, g) -> [Either.first h] @ (subfs_dfs f) @ (subfs_dfs g)
+  (* Added cases for Frex and Prex *)
+  | Frex (_, r)
+    | Prex (_, r) -> [Either.first h] @ (subfs_dfs_regex r)
+
+and subfs_dfs_regex = function
+  | Wild -> [Either.second Wild]                        (* Wild has no subformulas *)
+  | Test f -> [Either.second (Test f)] @ (subfs_dfs f)  (* Test has a subformula f *)
+  | Plus (r1, r2) -> [Either.second (Plus (r1, r2))] @ (subfs_dfs_regex r1) @ (subfs_dfs_regex r2) (* Constructs a list with the concatenated regex and appends the results from both sub-expressions *)
+  | Concat (r1, r2) -> [Either.second (Concat (r1, r2))] @ (subfs_dfs_regex r1) @ (subfs_dfs_regex r2) (* Constructs a list with the concatenated regex and appends the results from both sub-expressions *)
+  | Star r -> [Either.second (Star r)] @ (subfs_dfs_regex r) (* Constructs a list with the star regex and appends the results from the recursively called r *)
 
 (* Computes indices of the columns of the subformulas in the table *)
 let subfs_scope h i =
