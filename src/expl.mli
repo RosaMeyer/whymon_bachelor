@@ -62,7 +62,6 @@ module Proof : sig
     | SAlways of int * int * sp Fdeque.t
     | SSince of sp * sp Fdeque.t
     | SUntil of sp * sp Fdeque.t
-    | SPrexOut of int 
     | SPrex of int * rsp Fdeque.t
     | SFrex of int * rsp Fdeque.t 
   and vp =

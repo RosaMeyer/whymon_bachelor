@@ -105,7 +105,7 @@ let quant_check x f =
   if not (quant_check_rec f) then
     raise (Invalid_argument (Printf.sprintf "bound variable %s does not appear in subformula" x))
 
-let equal x y = match x, y with
+let rec equal x y = match x, y with
   | TT, TT | FF, FF -> true
   | EqConst (x, _), EqConst (x', _) -> String.equal x x'
   | Predicate (r, trms), Predicate (r', trms') -> String.equal r r' && List.equal Term.equal trms trms'
@@ -126,19 +126,17 @@ let equal x y = match x, y with
     | Until (i, f, g), Until (i', f', g') -> Interval.equal i i' && phys_equal f f' && phys_equal g g'
   (* TODO: Added cases for Frex and Prex - check equality of both the intervals and the regular expressions *)
   | Frex (i, r), Frex (i', r')
-    | Prex (i, r), Prex (i', r') -> Interval.equal i i' && (
-      (* Helper *)
-      let rec regex_equal x y = match x, y with
-        | Wild, Wild -> true
-        | Test f, Test f' -> phys_equal f f' (* TODO: I'm not sure if this makes sense? *)
-        | Plus (r1, r2), Plus (r1', r2')
-        | Concat (r1, r2), Concat (r1', r2') -> regex_equal r1 r1' && regex_equal r2 r2'
-        | Star r, Star r' -> regex_equal r r'
-        | _ -> false 
-      in 
-      regex_equal r r')
+    | Prex (i, r), Prex (i', r') -> Interval.equal i i' && regex_equal r r'
   (* TODO: If removed, there's an error... is it due to wrong implementation from my side? *)
   | _ -> false
+
+and regex_equal x y = match x, y with
+| Wild, Wild -> true
+| Test f, Test f' -> phys_equal f f'
+| Plus (r1, r2), Plus (r1', r2')
+| Concat (r1, r2), Concat (r1', r2') -> regex_equal r1 r1' && regex_equal r2 r2'
+| Star r, Star r' -> regex_equal r r'
+| _ -> false 
 
 (* fv: free variable *)  
 let rec fv = function
@@ -162,16 +160,14 @@ let rec fv = function
     | Until (_, f1, f2) -> Set.union (fv f1) (fv f2)
   (* TODO: Added cases for Frex and Prex *)
   | Frex (_, r)
-    | Prex (_, r) -> 
-      (* Helper *)
-      let rec regex_fv = function
-        | Wild -> Set.empty (module String)
-        | Test f -> fv f
-        | Plus (r1, r2)
-        | Concat (r1, r2) -> Set.union (regex_fv r1) (regex_fv r2) (* recursively compute the union of free variables in their subcomponents *)
-        | Star r -> regex_fv r
-      in 
-      regex_fv r
+    | Prex (_, r) -> regex_fv r
+
+and regex_fv = function
+  | Wild -> Set.empty (module String)
+  | Test f -> fv f
+  | Plus (r1, r2)
+  | Concat (r1, r2) -> Set.union (regex_fv r1) (regex_fv r2) (* recursively compute the union of free variables in their subcomponents *)
+  | Star r -> regex_fv r
 
 let check_bindings f =
   let fv_f = fv f in
@@ -198,76 +194,8 @@ let check_bindings f =
                              (bound_vars2, b1 && b2) in
   snd (check_bindings_rec (Set.empty (module String)) f)
 
-(* Past height *)
-let rec hp = function
-  | TT
-    | FF
-    | EqConst _
-    | Predicate _ -> 0
-  | Neg f
-    | Exists (_, f)
-    | Forall (_, f) -> hp f
-  | And (f1, f2)
-    | Or (f1, f2)
-    | Imp (f1, f2)
-    | Iff (f1, f2) -> max (hp f1) (hp f2)
-  | Prev (_, f)
-    | Once (_, f)
-    | Historically (_, f) -> hp f + 1
-  | Eventually (_, f)
-    | Always (_, f)
-    | Next (_, f) -> hp f
-  | Since (_, f1, f2) -> max (hp f1) (hp f2) + 1
-  | Until (_, f1, f2) -> max (hp f1) (hp f2)
-
-(* Future height *)
-let rec hf = function
-  | TT
-    | FF
-    | EqConst _
-    | Predicate _ -> 0
-  | Neg f
-    | Exists (_, f)
-    | Forall (_, f) -> hf f
-  | And (f1, f2)
-    | Or (f1, f2)
-    | Imp (f1, f2)
-    | Iff (f1, f2) -> max (hf f1) (hf f2)
-  | Prev (_, f)
-    | Once (_, f)
-    | Historically (_, f) -> hf f
-  | Eventually (_, f)
-    | Always (_, f)
-    | Next (_, f) -> hf f + 1
-  | Since (_, f1, f2) -> max (hf f1) (hf f2)
-  | Until (_, f1, f2) -> max (hf f1) (hf f2) + 1
-
-let height f = hp f + hf f
-
-let immediate_subfs = function
-  | TT
-    | FF
-    | EqConst _
-    | Predicate _ -> []
-  | Neg f
-    | Exists (_, f)
-    | Forall (_, f)
-    | Prev (_, f)
-    | Next (_, f)
-    | Once (_, f)
-    | Eventually (_, f)
-    | Historically (_, f)
-    | Always (_, f) -> [f]
-  | And (f, g)
-    | Or (f, g)
-    | Imp (f, g)
-    | Iff (f, g) -> [f; g]
-  | Since (_, f, g)
-    | Until (_, f, g) -> [f; g]
-
-let rec subfs_bfs xs =
-  xs @ (List.concat (List.map xs ~f:(fun x -> subfs_bfs (immediate_subfs x))))
-
+(* Computes columns in table 
+Formula: Either.first, regex:Either.second - types*)
 let rec subfs_dfs h = match h with
   | TT | FF | EqConst _ | Predicate _ -> [h]
   | Neg f -> [h] @ (subfs_dfs f)
@@ -286,6 +214,7 @@ let rec subfs_dfs h = match h with
   | Since (_, f, g) -> [h] @ (subfs_dfs f) @ (subfs_dfs g)
   | Until (_, f, g) -> [h] @ (subfs_dfs f) @ (subfs_dfs g)
 
+(* Computes indices of the columns of the subformulas in the table *)
 let subfs_scope h i =
   let rec subfs_scope_rec h i =
     match h with
@@ -429,6 +358,7 @@ let rec to_json_rec indent pos f =
                          indent pos indent' indent' (Interval.to_string i) (to_json_rec indent' "l" f) (to_json_rec indent' "r" g) indent
   | Until (i, f, g) -> Printf.sprintf "%s\"%sformula\": {\n%s\"type\": \"Until\",\n%s\"Interval.t\": \"%s\",\n%s,\n%s\n%s}"
                          indent pos indent' indent' (Interval.to_string i) (to_json_rec indent' "l" f) (to_json_rec indent' "r" g) indent
+  | _ -> failwith "not implemented"
 let to_json = to_json_rec "    " ""
 
 let rec to_latex_rec l = function
