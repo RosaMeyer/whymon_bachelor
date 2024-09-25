@@ -31,10 +31,10 @@ type t =
   | Always of Interval.t * t
   | Since of Interval.t * t * t
   | Until of Interval.t * t * t
-  (* TODO: Added *)
+  (* Added mutual constructors *)
   | Frex of Interval.t * regex
   | Prex of Interval.t * regex
-(* TODO: Added constructor for regex *)
+(* Added constructors for regex *)
 and regex =
   | Wild
   | Test of t
@@ -89,18 +89,18 @@ let quant_check x f =
     | Iff (f1, f2)
     | Since (_, f1, f2)
     | Until (_, f1, f2) -> quant_check_rec f1 || quant_check_rec f2
-  (* TODO: Added cases for regex *)
+  (* TODO: Move outside and make mutual... Added cases for regex *)
   | Frex (_, r)
     | Prex (_, r) ->
       (* Recursively handle free variables in regular expressions *)
-      let rec regex_fv = function
-        | Wild -> false                                  (* Wild has no free variables *)
-        | Test f -> quant_check_rec f                    (* Use quant_check_rec on the formula in Test *)
-        | Plus (r1, r2)                                  (* Plus only depends on the free variables in r1 and r2, need to check if x occurs in either r1 or r2 *)
-        | Concat (r1, r2) -> regex_fv r1 || regex_fv r2  (* Union of two regexes *)
-        | Star r -> regex_fv r                           (* Star only depends on the free variables in r *)
+      let rec regex_quant = function
+        | Wild -> false                                        (* Wild has no free variables *)
+        | Test f -> quant_check_rec f                          (* Use quant_check_rec on the formula in Test *)
+        | Plus (r1, r2)                                        (* Plus only depends on the free variables in r1 and r2, need to check if x occurs in either r1 or r2 *)
+        | Concat (r1, r2) -> regex_quant r1 || regex_quant r2  (* Union of two regexes *)
+        | Star r -> regex_quant r                              (* Star only depends on the free variables in r *)
       in
-      regex_fv r
+      regex_quant r
   in
   if not (quant_check_rec f) then
     raise (Invalid_argument (Printf.sprintf "bound variable %s does not appear in subformula" x))
@@ -124,7 +124,7 @@ let rec equal x y = match x, y with
     | Always (i, f), Always (i', f') -> Interval.equal i i' && phys_equal f f'
   | Since (i, f, g), Since (i', f', g')
     | Until (i, f, g), Until (i', f', g') -> Interval.equal i i' && phys_equal f f' && phys_equal g g'
-  (* TODO: Added cases for Frex and Prex - check equality of both the intervals and the regular expressions *)
+  (* Added cases for Frex and Prex - check equality of both the intervals and the regular expressions *)
   | Frex (i, r), Frex (i', r')
     | Prex (i, r), Prex (i', r') -> Interval.equal i i' && regex_equal r r'
   (* TODO: If removed, there's an error... is it due to wrong implementation from my side? *)
@@ -158,7 +158,7 @@ let rec fv = function
     | Iff (f1, f2)
     | Since (_, f1, f2)
     | Until (_, f1, f2) -> Set.union (fv f1) (fv f2)
-  (* TODO: Added cases for Frex and Prex *)
+  (* Added cases for Frex and Prex *)
   | Frex (_, r)
     | Prex (_, r) -> regex_fv r
 
@@ -169,6 +169,7 @@ and regex_fv = function
   | Concat (r1, r2) -> Set.union (regex_fv r1) (regex_fv r2) (* recursively compute the union of free variables in their subcomponents *)
   | Star r -> regex_fv r
 
+(* Variable scoping check - verifies bound_vars don't overlap with fv's and that variables are'nt bound more than once within the same scope *)
 let check_bindings f =
   let fv_f = fv f in
   let rec check_bindings_rec bound_vars = function
@@ -191,11 +192,27 @@ let check_bindings f =
       | Since (_, f1, f2)
       | Until (_, f1, f2) -> let (bound_vars1, b1) = check_bindings_rec bound_vars f1 in
                              let (bound_vars2, b2) = check_bindings_rec (Set.union bound_vars1 bound_vars) f2 in
-                             (bound_vars2, b1 && b2) in
+                             (bound_vars2, b1 && b2) 
+    (* Added cases for Frex and Prex *)
+    | Frex (_, r)
+      | Prex (_, r) -> 
+        (* Helper function to check variable bindings for regular expressions *)
+        let rec check_bindings_regex bound_vars = function
+          | Wild -> (bound_vars, true)                  (* Wild has no variables to bind, thus always valid regarding variable bindings *)
+          | Test f -> check_bindings_rec bound_vars f   (* Check variable bindings for the formula f in Test *)
+          | Plus (r1, r2) -> let (bound_vars1, b1) = check_bindings_regex bound_vars r1 in
+                             let (bound_vars2, b2) = check_bindings_regex (Set.union bound_vars1 bound_vars) r2 in
+                             (bound_vars2, b1 && b2)    (* The two regex's are checked independently and are not related except for their bound variables *)
+          | Concat (r1, r2) -> let (bound_vars1, b1) = check_bindings_regex bound_vars r1 in
+                               let (bound_vars2, b2) = check_bindings_regex (Set.union bound_vars1 bound_vars) r2 in
+                               (bound_vars2, b1 && b2)  (* The variables bound in r1 directly affect how r2 is processed *)
+          | Star r -> check_bindings_regex bound_vars r (* Repetition of the regex is checked for valid variable bindings *)
+      in check_bindings_regex bound_vars r
+  in
   snd (check_bindings_rec (Set.empty (module String)) f)
 
 (* Computes columns in table 
-Formula: Either.first, regex:Either.second - types*)
+Formula: Either.first, regex: Either.second - types*)
 let rec subfs_dfs h = match h with
   | TT | FF | EqConst _ | Predicate _ -> [h]
   | Neg f -> [h] @ (subfs_dfs f)
