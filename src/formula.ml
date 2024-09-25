@@ -298,7 +298,8 @@ let pred_names f =
       | Until (_, f1, f2) | Since (_, f1, f2) -> Set.union (pred_names_rec s f1) (pred_names_rec s f2) in
   pred_names_rec (Set.empty (module String)) f
 
-let op_to_string = function
+(* Converts each logical formula/regular expression type into it's string form *)
+let rec op_to_string = function
   | TT -> Printf.sprintf "⊤"
   | FF -> Printf.sprintf "⊥"
   | EqConst _ -> Printf.sprintf "="
@@ -318,6 +319,16 @@ let op_to_string = function
   | Always (i, _) -> Printf.sprintf "□%s" (Interval.to_string i)
   | Since (i, _, _) -> Printf.sprintf "S%s" (Interval.to_string i)
   | Until (i, _, _) -> Printf.sprintf "U%s" (Interval.to_string i)
+  | Frex (i, _) -> Printf.sprintf "F%s" (Interval.to_string i)
+  | Prex (i, _) -> Printf.sprintf "P%s" (Interval.to_string i)
+
+(* TODO: Is this what is how I was supposed to think about the function? *)
+and op_to_string_regex = function
+  | Wild -> Printf.sprintf "Wild"
+  | Test f -> Printf.sprintf "{%s}" (op_to_string f) (* Handles regexes that test for formula, f, printing it in the form {f}, where f is represented by op_to_string *)
+  | Plus (r1, r2) -> Printf.sprintf "(%s ∪ %s)" (op_to_string_regex r1) (op_to_string_regex r2)
+  | Concat (r1, r2) -> Printf.sprintf "(%s ∙ %s)" (op_to_string_regex r1) (op_to_string_regex r2)
+  | Star r -> Printf.sprintf "(%s)*" (op_to_string_regex r)
 
 let rec to_string_rec l json = function
   | TT -> Printf.sprintf "⊤"
@@ -342,6 +353,7 @@ let rec to_string_rec l json = function
                          (fun _ -> Interval.to_string) i (fun _ -> to_string_rec 5 json) g
   | Until (i, f, g) -> Printf.sprintf (Etc.paren l 0 "%a U%a %a") (fun _ -> to_string_rec 5 json) f
                          (fun _ -> Interval.to_string) i (fun _ -> to_string_rec 5 json) g
+  | _ -> failwith "not implemented"
 let to_string json = to_string_rec 0 json
 
 let rec to_json_rec indent pos f =
@@ -410,4 +422,5 @@ let rec to_latex_rec l = function
                          (fun _ -> Interval.to_latex) i (fun _ -> to_latex_rec 5) g
   | Until (i, f, g) -> Printf.sprintf (Etc.paren l 0 "%a \\Until{%a} %a") (fun _ -> to_latex_rec 5) f
                          (fun _ -> Interval.to_latex) i (fun _ -> to_latex_rec 5) g
+  | _ -> failwith "not implemented"
 let to_latex = to_latex_rec 0
