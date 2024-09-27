@@ -295,7 +295,17 @@ let pred_names f =
       | Historically (_, f) | Always (_, f) -> pred_names_rec s f
     | And (f1, f2) | Or (f1, f2)
       | Imp (f1, f2) | Iff (f1, f2)
-      | Until (_, f1, f2) | Since (_, f1, f2) -> Set.union (pred_names_rec s f1) (pred_names_rec s f2) in
+      | Until (_, f1, f2) | Since (_, f1, f2) -> Set.union (pred_names_rec s f1) (pred_names_rec s f2) 
+      (* Added cases for Frex and Prex *)
+      | Frex (_, r) 
+        | Prex (_, r) -> regex_pred_names s r
+    and regex_pred_names s = function
+      | Wild -> s
+      | Test f -> pred_names_rec s f
+      | Plus (r1, r2) -> Set.union (regex_pred_names s r1) (regex_pred_names s r2)
+      | Concat (r1, r2) -> Set.union (regex_pred_names s r1) (regex_pred_names s r2)
+      | Star r -> regex_pred_names s r
+    in
   pred_names_rec (Set.empty (module String)) f
 
 (* Converts each logical formula/regular expression type into it's string form *)
@@ -325,7 +335,7 @@ let rec op_to_string = function
 (* TODO: Is this what is how I was supposed to think about the function? *)
 and op_to_string_regex = function
   | Wild -> Printf.sprintf "Wild"
-  | Test f -> Printf.sprintf "{%s}" (op_to_string f) (* Handles regexes that test for formula, f, printing it in the form {f}, where f is represented by op_to_string *)
+  | Test f -> Printf.sprintf "(%s)" (op_to_string f) (* Handles regexes that test for formula, f, printing it in the form (f), where f is represented by op_to_string *)
   | Plus (r1, r2) -> Printf.sprintf "(%s ∪ %s)" (op_to_string_regex r1) (op_to_string_regex r2)
   | Concat (r1, r2) -> Printf.sprintf "(%s ∙ %s)" (op_to_string_regex r1) (op_to_string_regex r2)
   | Star r -> Printf.sprintf "(%s)*" (op_to_string_regex r)
