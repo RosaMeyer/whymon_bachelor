@@ -501,6 +501,12 @@ predicate logic, and more advanced features like handling regular expressions *)
                               (Etc.deque_to_string indent' s_to_string sp1s)
     | SUntil (sp2, sp1s) -> Printf.sprintf "%sSUntil{%d}\n%s\n%s" indent (s_at p)
                               (Etc.deque_to_string indent' s_to_string sp1s) (s_to_string indent' sp2)
+    (* TODO: Regex cases *)
+    | SPrex (tp, rsps) -> Printf.sprintf "%sSPrex{%d}\n%s" indent tp
+                           (Etc.deque_to_string indent' s_to_string rsps)
+    | SFrex (tp, rsps) -> Printf.sprintf "%sSFrex{%d}\n%s" indent tp
+                           (Etc.deque_to_string indent' s_to_string rsps)
+
   and v_to_string indent p =
     let indent' = "    " ^ indent in
     match p with
@@ -543,6 +549,12 @@ predicate logic, and more advanced features like handling regular expressions *)
                                  (Etc.deque_to_string indent' v_to_string vp2s) (v_to_string indent' vp1)
     | VUntilInf (_, _, vp2s) -> Printf.sprintf "%sVUntilInf{%d}\n%s" indent (v_at p)
                                   (Etc.deque_to_string indent' v_to_string vp2s)
+    (* TODO: Regex cases *)
+    | VPrexOut i -> Printf.sprintf "%sVPrexOut{%d}" indent i
+    | VPrex (tp, rvps) -> Printf.sprintf "%sVPrex{%d}\n%s" indent tp
+                           (Etc.deque_to_string indent' v_to_string rvps)
+    | VFrex (tp, rvps) -> Printf.sprintf "%sVFrex{%d}\n%s" indent' tp 
+                           (Etc.deque_to_string indent' v_to_string rvps)
 
   let to_string indent = function
     | S p -> s_to_string indent p
