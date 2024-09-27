@@ -503,9 +503,9 @@ predicate logic, and more advanced features like handling regular expressions *)
                               (Etc.deque_to_string indent' s_to_string sp1s) (s_to_string indent' sp2)
     (* TODO: Regex cases *)
     | SPrex (tp, rsps) -> Printf.sprintf "%sSPrex{%d}\n%s" indent tp
-                           (Etc.deque_to_string indent' s_to_string rsps)
+                           (Etc.deque_to_string indent' sr_to_string rsps)
     | SFrex (tp, rsps) -> Printf.sprintf "%sSFrex{%d}\n%s" indent tp
-                           (Etc.deque_to_string indent' s_to_string rsps)
+                           (Etc.deque_to_string indent' sr_to_string rsps)
 
   and v_to_string indent p =
     let indent' = "    " ^ indent in
@@ -552,9 +552,26 @@ predicate logic, and more advanced features like handling regular expressions *)
     (* TODO: Regex cases *)
     | VPrexOut i -> Printf.sprintf "%sVPrexOut{%d}" indent i
     | VPrex (tp, rvps) -> Printf.sprintf "%sVPrex{%d}\n%s" indent tp
-                           (Etc.deque_to_string indent' v_to_string rvps)
+                           (Etc.deque_to_string indent' vr_to_string rvps)
     | VFrex (tp, rvps) -> Printf.sprintf "%sVFrex{%d}\n%s" indent' tp 
-                           (Etc.deque_to_string indent' v_to_string rvps)
+                           (Etc.deque_to_string indent' vr_to_string rvps)
+
+    and sr_to_string indent = function
+    | SWild tp -> Printf.sprintf "%sSWild{%d}" indent tp
+    | STest sp -> Printf.sprintf "%sSTest{%d}\n%s" indent (s_at sp) (s_to_string indent sp)
+    | SPlusL rsp -> Printf.sprintf "%sSPlusL{%d}\n%s" indent (fst (sr_at rsp)) (sr_to_string indent rsp)
+    | SPlusR rsp -> Printf.sprintf "%sSPlusR{%d}\n%s" indent (fst (sr_at rsp)) (sr_to_string indent rsp)
+    | SConcat (rsp1, rsp2) -> Printf.sprintf "%sSConcat{%d}\n%s\n%s" indent (fst (sr_at rsp1)) (sr_to_string indent rsp1) (sr_to_string indent rsp2)
+    | SStarEps tp -> Printf.sprintf "%sSStarEps{%d}" indent tp
+    | SStar rsps -> Printf.sprintf "%sSStar{%d}\n%s" indent (fst (sr_at (Fdeque.peek_front_exn rsps))) (Etc.deque_to_string indent sr_to_string rsps)
+
+    and vr_to_string indent = function
+    | VWild (tp1, tp2) -> Printf.sprintf "%sVWild{%d, %d}" indent tp1 tp2
+    | VTest vp -> Printf.sprintf "%sVTest{%d}\n%s" indent (v_at vp) (v_to_string indent vp)
+    | VTestNeq (tp1, tp2) -> Printf.sprintf "%sVTestNeq{%d, %d}" indent tp1 tp2
+    | VPlus (rvp1, rvp2) -> Printf.sprintf "%sVPlus{%d}\n%s\n%s" indent (fst (vr_at rvp1)) (vr_to_string indent rvp1) (vr_to_string indent rvp2)
+    | VConcat rvps -> Printf.sprintf "%sVConcat{%d}\n%s" indent (fst (vr_at (Fdeque.peek_front_exn rvps))) (Etc.deque_to_string indent vr_to_string rvps)
+    | VStar rvps -> Printf.sprintf "%sVStar{%d}\n%s" indent (fst (vr_at (Fdeque.peek_front_exn rvps))) (Etc.deque_to_string indent vr_to_string rvps)
 
   let to_string indent = function
     | S p -> s_to_string indent p
