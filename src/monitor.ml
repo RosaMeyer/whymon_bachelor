@@ -1380,6 +1380,8 @@ module MFormula = struct
     | MUntil (i, mf1, mf2, buf2t, muaux_pdt), MUntil (i', mf1', mf2', buf2t', muaux_pdt') ->
        Interval.equal i i' && Buf2t.equal buf2t buf2t' Expl.equal Expl.equal tstp_equal &&
          equal mf1 mf1' && equal mf2 mf2' && (Pdt.equal Until.equal) muaux_pdt muaux_pdt'
+    (* TODO: Should be implemented for regexes! *)
+    | _ -> failwith "not implemented!"
 
   let rec to_string_rec l = function
     | MTT -> Printf.sprintf "⊤"
