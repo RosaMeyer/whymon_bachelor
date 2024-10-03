@@ -73,6 +73,7 @@ val subfs_dfs: t -> t list
 val subfs_dfs_regex: regex -> (t, regex) Base.Either.t list
 val subfs_scope: t -> int -> (int * (int list * int list)) list
 val preds: t -> t list
+val regex_preds: regex -> t list
 val pred_names: t -> (string, Base.String.comparator_witness) Base.Set.t
 
 val op_to_string: t -> string

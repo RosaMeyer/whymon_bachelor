@@ -284,7 +284,18 @@ let rec preds = function
                                                              if (List.mem acc a ~equal:equal) || (List.mem a1s a ~equal:equal) then acc
                                                              else acc @ [a]) in
                                                List.append a1s a2s
+    (* Added cases for Frex and Prex *)
+  | Frex (_, r)
+    | Prex (_, r) -> regex_preds r
 
+and regex_preds = function
+  | Wild -> []
+  | Test f -> preds f
+  | Plus (r1, r2) -> List.append (regex_preds r1) (regex_preds r2)
+  | Concat (r1, r2) -> List.append (regex_preds r1) (regex_preds r2)
+  | Star r -> regex_preds r
+
+(* Returns the set of predicate names in a formula and a regex *)
 let pred_names f =
   let rec pred_names_rec s = function
     | TT | FF | EqConst _ -> s
