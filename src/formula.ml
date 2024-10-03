@@ -89,14 +89,15 @@ let quant_check x f =
     | Iff (f1, f2)
     | Since (_, f1, f2)
     | Until (_, f1, f2) -> quant_check_rec f1 || quant_check_rec f2
-  (* TODO: Move outside and make mutual... Added cases for regex *)
+  (* Added cases for regex *)
+  (* TODO: Move outside and make mutual... *)
   | Frex (_, r)
     | Prex (_, r) ->
       (* Recursively handle free variables in regular expressions *)
       let rec regex_quant = function
         | Wild -> false                                        (* Wild has no free variables *)
         | Test f -> quant_check_rec f                          (* Use quant_check_rec on the formula in Test *)
-        | Plus (r1, r2)                                        (* Plus only depends on the free variables in r1 and r2, need to check if x occurs in either r1 or r2 *)
+        | Plus (r1, r2)  -> regex_quant r1 || regex_quant r2   (* Plus only depends on the free variables in r1 and r2, need to check if x occurs in either r1 or r2 *)
         | Concat (r1, r2) -> regex_quant r1 || regex_quant r2  (* Union of two regexes *)
         | Star r -> regex_quant r                              (* Star only depends on the free variables in r *)
       in
@@ -243,6 +244,7 @@ and subfs_dfs_regex = function
 
 (* Computes indices of the columns of the subformulas in the table *)
 let subfs_scope h i =
+  (* traverses the formula h, computes the indices of subformulas, returning both the updated index and a list representing the subformula scopes *)
   let rec subfs_scope_rec h i =
     match h with
     | TT | FF | EqConst _ | Predicate _ -> (i, [(i, ([], []))])
@@ -264,7 +266,27 @@ let subfs_scope h i =
       | Until (_, f, g) ->  let (i', subfs_f) = subfs_scope_rec f (i+1) in
                             let (i'', subfs_g) = subfs_scope_rec g (i'+1) in
                             (i'', [(i, ((List.map subfs_f ~f:fst), (List.map subfs_g ~f:fst)))]
-                                  @ subfs_f @ subfs_g) in
+                                  @ subfs_f @ subfs_g) 
+    (* Added cases for regexes *)
+    | Frex (_, r)
+      | Prex (_, r) -> 
+        let rec regex_scope r i =
+          match r with
+            | Wild -> (i, [(i, ([], []))])
+            | Test f -> let (i', subfs_f) = subfs_scope_rec f (i+1) in  
+                        (i', [(i, (List.map subfs_f ~f:fst, []))] @ subfs_f) (* evaluates whether f holds *)
+            | Plus (r1, r2) -> let (i', subfs_r1) = regex_scope r1 i in
+                               let (i'', subfs_r2) = regex_scope r2 (i'+1) in
+                               (i'', [(i, (List.map subfs_r1 ~f:fst, List.map subfs_r2 ~f:fst))] 
+                                     @ subfs_r1 @ subfs_r2)
+            | Concat (r1, r2) -> let (i', subfs_r1) = regex_scope r1 i in 
+                                 let (i'', subfs_r2) = regex_scope r2 (i'+1) in 
+                                  (i'', [(i, (List.map subfs_r1 ~f:fst, List.map subfs_r2 ~f:fst))] 
+                                        @ subfs_r1 @ subfs_r2)
+            | Star r -> let (i', subfs_r) = regex_scope r i in
+                        (i', [(i, (List.map subfs_r ~f:fst, []))] @ subfs_r)
+        in regex_scope r i
+    in
   snd (subfs_scope_rec h i)
 
 let rec preds = function
