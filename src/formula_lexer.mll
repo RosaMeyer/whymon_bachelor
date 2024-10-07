@@ -60,6 +60,11 @@ rule token = parse
                                                   { debug "INTERVAL"; INTERVAL (make_interval lexbuf l i j r) }
   | "("                                           { debug "LPA"; LPA }
   | ")"                                           { debug "RPA"; RPA }
+  | "FREX"                                        { debug "FREX"; FREX }
+  | "PREX"                                        { debug "PREX"; PREX }
+  | "PLUS"                                        { debug "PLUS"; PLUS }
+  | "?"                                           { debug "QM"; QM }
+  | "*"                                           { debug "STAR"; STAR }
   | digits as d                                   { debug ("INT " ^ d); INT (Base.Int.of_string d) }
   | string as s                                   { debug ("STR " ^ s); STR s }
   | quoted_string as qs                           { debug ("QSTR " ^ qs); QSTR qs }

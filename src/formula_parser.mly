@@ -48,6 +48,14 @@ let debug m = if !debug then Stdio.print_endline ("[debug] formula_parser: " ^ m
 %token RELEASE
 %token TRIGGER
 
+(* TODO: Regex tokens *)
+%token FREX
+%token PREX
+%token QM (* Test *)
+%token PLUS
+%token CONCAT
+%token STAR
+
 %nonassoc INTERVAL
 %right SINCE UNTIL RELEASE TRIGGER
 %nonassoc PREV NEXT ONCE EVENTUALLY HISTORICALLY ALWAYS
@@ -55,7 +63,12 @@ let debug m = if !debug then Stdio.print_endline ("[debug] formula_parser: " ^ m
 %right IFF IMP
 %left OR
 %left AND
+
+%left PLUS
+%left CONCAT
+
 %nonassoc NEG
+%nonassoc BASE
 
 %type <Formula.t> formula
 %start formula
@@ -108,6 +121,30 @@ e:
 | EXISTS STR DOT e %prec EXISTS        { debug "EXISTS STR DOT e"; quant_check $2 $4; exists $2 $4 }
 | FORALL STR DOT e %prec FORALL        { debug "FORALL STR DOT e"; quant_check $2 $4; forall $2 $4 }
 | STR LPA terms RPA                    { debug "STR LPA terms RPA"; predicate $1 $3 }
+
+(* TODO: FIX degub strings *)
+| FREX INTERVAL fregex                 { debug "f(frexd)"; Frex ($2,$3) }
+| FREX fregex                          { debug "f(frexdf)"; Frex (Interval.full,$2) }
+| PREX INTERVAL pregex                 { debug "f(prexd)"; Prex ($2,$3) }
+| PREX pregex                          { debug "f(prexdf)"; Prex (Interval.full,$2) }
+
+fregex:
+| LPA fregex RPA                       { debug "r()"; $2 } 
+| DOT                                  { debug "f(wild)"; Wild }
+| formula                              { debug "f(fbase)"; Concat(Test ($1),Wild)} %prec BASE
+| formula QM                           { debug "f(test)"; Test ($1)}
+| fregex fregex                        { debug "f(concat)"; Concat ($1,$2)}  %prec CONCAT
+| fregex PLUS fregex                   { debug "f(plus)"; Plus ($1, $3)} %prec PLUS
+| fregex STAR                          { debug "f(star)"; Star ($1)}
+
+pregex:
+| LPA pregex RPA                       { debug "r()"; $2 } 
+| DOT                                  { debug "f(wild)"; Wild }
+| formula                              { debug "f(pbase)"; Concat(Wild,Test ($1))} %prec BASE
+| formula QM                           { debug "f(test)"; Test ($1)}
+| pregex pregex                        { debug "f(concat)"; Concat ($1,$2)}  %prec CONCAT
+| pregex PLUS pregex                   { debug "f(plus)"; Plus ($1, $3)} %prec PLUS
+| pregex STAR                          { debug "f(star)"; Star ($1)}
 
 term:
 | const                                { debug "CONST"; $1 }

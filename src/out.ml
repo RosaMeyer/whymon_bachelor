@@ -74,11 +74,11 @@ module Json = struct
                                           let r_props = Hashtbl.find_exn Pred.Sig.table r in
                                           let var_names = fst (List.unzip r_props.ntconsts) in
                                           (Printf.sprintf "%s(%s)" r (Etc.string_list_to_string var_names)) :: acc)) in
-    let subfs_columns = List.map (Formula.subfs_dfs f) ~f:Formula.op_to_string in
+    let subfs_columns = List.map (Formula.subfs_dfs f) ~f:(function Either.First f -> Formula.op_to_string f | Either.Second r -> Formula.op_to_string_regex r) in
     let subfs_scope = List.map (Formula.subfs_scope f 0) ~f:(fun (i, (js, ks)) ->
                           Printf.sprintf "{\"col\": %d, \"leftCols\": %s, \"rightCols\": %s}"
                             i (Etc.int_list_to_json js) (Etc.int_list_to_json ks)) in
-    let subfs = List.map (Formula.subfs_dfs f) ~f:(Formula.to_string true) in
+    let subfs = List.map (Formula.subfs_dfs f) ~f:(function Either.First f -> Formula.to_string true f | Either.Second r -> failwith "not implemented") in (* TODO: implement! *)
     Printf.sprintf "{\n  \"predsColumns\": %s,\n
                     \"subfsColumns\": %s,\n
                     \"subfsScopes\": [%s],\n

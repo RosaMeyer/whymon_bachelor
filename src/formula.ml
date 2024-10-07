@@ -42,7 +42,6 @@ and regex =
   | Concat of regex * regex
   | Star of regex
 
-
 let tt = TT
 let ff = FF
 let eqconst x d = EqConst (x, d)
@@ -62,6 +61,7 @@ let historically i f = Historically (i, f)
 let always i f = Always (i, f)
 let since i f g = Since (i, f, g)
 let until i f g = Until (i, f, g)
+(* TODO: Add smart constructors "smart" for regexes *)
 
 (* Rewriting of non-native operators *)
 let trigger i f g = Neg (Since (i, Neg (f), Neg (g)))
@@ -92,16 +92,14 @@ let quant_check x f =
   (* Added cases for regex *)
   (* TODO: Move outside and make mutual... *)
   | Frex (_, r)
-    | Prex (_, r) ->
+    | Prex (_, r) -> regex_quant r
       (* Recursively handle free variables in regular expressions *)
-      let rec regex_quant = function
+      and regex_quant = function
         | Wild -> false                                        (* Wild has no free variables *)
         | Test f -> quant_check_rec f                          (* Use quant_check_rec on the formula in Test *)
         | Plus (r1, r2)  -> regex_quant r1 || regex_quant r2   (* Plus only depends on the free variables in r1 and r2, need to check if x occurs in either r1 or r2 *)
         | Concat (r1, r2) -> regex_quant r1 || regex_quant r2  (* Union of two regexes *)
         | Star r -> regex_quant r                              (* Star only depends on the free variables in r *)
-      in
-      regex_quant r
   in
   if not (quant_check_rec f) then
     raise (Invalid_argument (Printf.sprintf "bound variable %s does not appear in subformula" x))
@@ -128,7 +126,6 @@ let rec equal x y = match x, y with
   (* Added cases for Frex and Prex - check equality of both the intervals and the regular expressions *)
   | Frex (i, r), Frex (i', r')
     | Prex (i, r), Prex (i', r') -> Interval.equal i i' && regex_equal r r'
-  (* TODO: If removed, there's an error... is it due to wrong implementation from my side? *)
   | _ -> false
 
 and regex_equal x y = match x, y with
@@ -342,7 +339,7 @@ let pred_names f =
   pred_names_rec (Set.empty (module String)) f
 
 (* Converts each logical formula/regular expression type into it's string form *)
-let rec op_to_string = function
+let op_to_string = function
   | TT -> Printf.sprintf "⊤"
   | FF -> Printf.sprintf "⊥"
   | EqConst _ -> Printf.sprintf "="
@@ -362,17 +359,18 @@ let rec op_to_string = function
   | Always (i, _) -> Printf.sprintf "□%s" (Interval.to_string i)
   | Since (i, _, _) -> Printf.sprintf "S%s" (Interval.to_string i)
   | Until (i, _, _) -> Printf.sprintf "U%s" (Interval.to_string i)
-  | Frex (i, _) -> Printf.sprintf "F%s" (Interval.to_string i)
+  | Frex (i, _) -> Printf.sprintf "F%s" (Interval.to_string i) (* TODO: triangle symbol *)
   | Prex (i, _) -> Printf.sprintf "P%s" (Interval.to_string i)
 
 (* TODO: Is this what is how I was supposed to think about the function? *)
 and op_to_string_regex = function
-  | Wild -> Printf.sprintf "Wild"
-  | Test f -> Printf.sprintf "(%s)" (op_to_string f) (* Handles regexes that test for formula, f, printing it in the form (f), where f is represented by op_to_string *)
-  | Plus (r1, r2) -> Printf.sprintf "(%s ∪ %s)" (op_to_string_regex r1) (op_to_string_regex r2)
-  | Concat (r1, r2) -> Printf.sprintf "(%s ∙ %s)" (op_to_string_regex r1) (op_to_string_regex r2)
-  | Star r -> Printf.sprintf "(%s)*" (op_to_string_regex r)
+  | Wild -> Printf.sprintf "Wild" (* TODO: Black star *)
+  | Test _ -> Printf.sprintf "?" (* Handles regexes that test for formula, f, printing it in the form (f), where f is represented by op_to_string *)
+  | Plus _ -> Printf.sprintf "+" 
+  | Concat _ -> Printf.sprintf "∙"
+  | Star _ -> Printf.sprintf "*"
 
+(* TODO: edit comment - prints the output, send to visulazation *)
 let rec to_string_rec l json = function
   | TT -> Printf.sprintf "⊤"
   | FF -> Printf.sprintf "⊥"
