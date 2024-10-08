@@ -11,6 +11,8 @@ open Core
 open Etc
 open Expl
 open Pred
+#require "str";;
+open Str
 
 let minp_list = Proof.Size.minp_list
 let minp_bool = Proof.Size.minp_bool
@@ -234,6 +236,35 @@ module Buf2t = struct
 
 end
 
+(* Added by RMHM *) 
+module BufNt = struct
+  
+  type ('a, 'b, 'c) t = ('a list * 'b list) * 'c list
+
+  (* Concatenate two lists of strings, where xs are patterns and ys are inputs *)
+  let add xs ys (l1, l2) = (l1 @ xs, l2 @ ys)
+  
+  (* Recursively apply a function to each match of regex patterns in the lists *)
+  let rec take f w (xs, ys) zs = match (xs, ys), zs with
+    | ([], ys), zs -> (w, (([], ys), zs))
+    | (xs, []), zs -> (w, ((xs, []), zs))
+    | (xs, ys), [] -> (w, ((xs, ys), []))
+    | (x::xs, y::ys), (a,b)::zs ->
+      if Str.string_match (Str.regexp x) a 0 then
+        take f (f x y a b w) (xs, ys) zs 
+      else
+        take f w (xs, ys) zs
+
+  (* Compare two BufNt structures *)
+  let equal bufnt bufnt' eq1 eq2 eq3 =
+    let equal_component c1 c2 f = match List.for_all2 c1 c2 ~f with
+      | Ok b -> b
+      | Unequal_lengths -> false in
+    equal_component (fst (fst bufnt)) (fst (fst bufnt')) eq1 &&
+      equal_component (snd (fst bufnt)) (snd (fst bufnt')) eq2 &&
+        equal_component (snd bufnt) (snd bufnt') eq3
+
+end
 
 module Once = struct
 
@@ -1409,7 +1440,20 @@ module MFormula = struct
 
 end
 
+(* TODO: How I'm I supposed to implement the datatype MRegex? Does it need more extending? *)
+module MRegex = struct
+
+  type r = 
+    | MWild 
+    | MTest of int
+    | MPlus of r * r
+    | MConcat of r * r
+    | MStar of r
+
+end
+
 include MFormula
+include MRegex
 
 let do_neg = function
   | Proof.S sp -> Proof.V (VNeg sp)
