@@ -236,7 +236,7 @@ module Buf2t = struct
 
 end
 
-(* Added by RMHM *) 
+(* Added by RMHM - explanation to subformulas *) 
 module BufNt = struct
   
   type ('a, 'b, 'c) t = ('a list * 'b list) * 'c list
@@ -255,7 +255,7 @@ module BufNt = struct
       else
         take f w (xs, ys) zs
 
-  (* Compare two BufNt structures *)
+  (* Compare two BufNt structures - QUESTION: Do we need this for regexes as well? *)
   let equal bufnt bufnt' eq1 eq2 eq3 =
     let equal_component c1 c2 f = match List.for_all2 c1 c2 ~f with
       | Ok b -> b
@@ -1411,7 +1411,7 @@ module MFormula = struct
     | MUntil (i, mf1, mf2, buf2t, muaux_pdt), MUntil (i', mf1', mf2', buf2t', muaux_pdt') ->
        Interval.equal i i' && Buf2t.equal buf2t buf2t' Expl.equal Expl.equal tstp_equal &&
          equal mf1 mf1' && equal mf2 mf2' && (Pdt.equal Until.equal) muaux_pdt muaux_pdt'
-    (* TODO: Should be implemented for regexes! *)
+    (* TODO: Should be implemented for regexes! QUESTION: How? *)
     | _ -> failwith "not implemented!"
 
   let rec to_string_rec l = function
@@ -1440,7 +1440,7 @@ module MFormula = struct
 
 end
 
-(* TODO: How I'm I supposed to implement the datatype MRegex? Does it need more extending? *)
+(* QUESTION: How I'm I supposed to implement the datatype MRegex? I assume it needs more extending? *)
 module MRegex = struct
 
   type r = 

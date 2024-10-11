@@ -963,6 +963,11 @@ module Pdt = struct
                                            else apply3 vars f (Node (x, part1)) (Node (y, part2)) (Node (z, part3))))))))
     | _ -> raise (Invalid_argument "variable list is empty")
 
+  (* Added by RMHM *)  
+  let rec applyN vars f pdts = match vars, pdts with
+    | _, 
+                                    
+
   let rec split_prod = function
     | Leaf (l1, l2) -> (Leaf l1, Leaf l2)
     | Node (x, part) -> let (part1, part2) = Part.split_prod (Part.map part split_prod) in
