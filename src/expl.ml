@@ -965,7 +965,25 @@ module Pdt = struct
 
   (* Added by RMHM *)  
   let rec applyN vars f pdts = match vars, pdts with
-    | _, 
+    | _, [] -> raise (Invalid_argument "Pdt list is empty")
+    (* Case when all Pdt's are leaves *)
+    | _, pdts when List.for_all (function Leaf _ -> true | _ -> false) pdts -> 
+                   let leaf_values = List.map (function Leaf l -> l | _ assert false) pdts in 
+                   Leaf (f leaf_values)
+    (* Case when all Pdts are nodes with the same variable z *)
+    | z :: vars, pdts when List.for_all (function Node (x, _) -> String.equal x z | _ -> false) pdts ->
+                           let parts = List.map (function Node (_, part) -> part | _ -> assert false) pdts in
+                           let m' = Part.mergeN (applyN vars f) parts in
+                           Node (z, m')
+    (* Case when some Pdts might not match on the current variable *)
+    | z :: vars, pdts -> 
+      let pdts_mapped = List.map (fun pdt ->
+        match pdt with
+        | Leaf l -> applyN vars f (List.map (function Node (x, part) -> Node (x, part) | _ -> assert false) pdts)
+        | Node (x, part) when String.equal x z -> Node (x, Part.map part (applyN vars f))
+        | Node (x, part) -> applyN vars f (List.map (fun _ -> Node (x, part)) pdts)) pdts in
+      List.hd pdts_mapped
+    | _ -> raise (Invalid_argument "variable list is empty")
                                     
 
   let rec split_prod = function
