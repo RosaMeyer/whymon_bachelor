@@ -964,7 +964,7 @@ module Pdt = struct
     | _ -> raise (Invalid_argument "variable list is empty")
 
   (* Added by RMHM *)  
-  let rec applyN vars f pdts = match vars, pdts with
+  let rec applyN_fst vars f pdts = match vars, pdts with
     | _, [] -> raise (Invalid_argument "Pdt list is empty")
     (* Case when all Pdt's are leaves *)
     | _, pdts when List.for_all (function Leaf _ -> true | _ -> false) pdts -> 
@@ -973,18 +973,45 @@ module Pdt = struct
     (* Case when all Pdts are nodes with the same variable z *)
     | z :: vars, pdts when List.for_all (function Node (x, _) -> String.equal x z | _ -> false) pdts ->
                            let parts = List.map (function Node (_, part) -> part | _ -> assert false) pdts in
-                           let m' = Part.mergeN (applyN vars f) parts in
+                           let m' = Part.mergeN (applyN_fst vars f) parts in
                            Node (z, m')
     (* Case when some Pdts might not match on the current variable *)
     | z :: vars, pdts -> 
       let pdts_mapped = List.map (fun pdt ->
         match pdt with
-        | Leaf l -> applyN vars f (List.map (function Node (x, part) -> Node (x, part) | _ -> assert false) pdts)
-        | Node (x, part) when String.equal x z -> Node (x, Part.map part (applyN vars f))
-        | Node (x, part) -> applyN vars f (List.map (fun _ -> Node (x, part)) pdts)) pdts in
+        | Leaf l -> applyN_fst_fst vars f (List.map (function Node (x, part) -> Node (x, part) | _ -> assert false) pdts)
+        | Node (x, part) when String.equal x z -> Node (x, Part.map part (applyN_fst_fst vars f))
+        | Node (x, part) -> applyN_fst_fst_fst vars f (List.map (fun _ -> Node (x, part)) pdts)) pdts in
       List.hd pdts_mapped
     | _ -> raise (Invalid_argument "variable list is empty")
-                                    
+  
+  (* Added by RMHM - extracts the variable from a node *)
+  let var = function
+  | Node (x, _) -> x
+  | Leaf _ -> raise (Invalid_argument "var is underfined for leafs") 
+  
+  (* Added by RMHM - extracts the part from a node *)
+  let part = function
+  | Node (_, p) -> p
+  | Leaf _ -> raise (Invalid_argument "part is undefined for leafs")
+      
+  (* Added by RMHM - recursively applies a function to a list ys while modifying it *)
+  let rec papply_list f xs ys = match xs ys with 
+  (* Base case: If the first list (xs) is empty apply f to ys *)
+  | [], _ -> f ys
+  | [], y :: ys -> papply_list ~f:(fun zs -> f (y :: zs) xs ys) (* QUESTION: correct implementation? *)
+  | x :: xs, ys -> papply_lis ~f:(fun zs -> f (x :: zs) xs ys) (* QUESTION: correct implementation? *)
+  | _, [] -> raise (Invalid_argument "underfined if the ys list is empty")
+ 
+  (* Added by RMHM - implemented apply_pdt (applyN?) after the code from Isabelle Proof system, send by Dmitriy*)  
+  let rec applyN_snd vars f pdts = match vars, pdts with
+    let f' = papply_list f (List.map ~f:(fun pdt -> if Pdt.is_Leaf pdt then Some (Pdt.unleaf pdt) else None) pdts)
+      nodes = List.filter (Pdt.not o Pdt.is_Leaf) pdts (* QUESTION: What is o? *)
+      other_nodes = List.map ~f:(fun pdt -> if var pdt = z then None else Some pdt) nodes
+      z_parts = List.map part (List.filter ~f:(fun pdt -> var pdt = z) nodes)
+    in if z_parts = [] then applyN_snd vs f' nodes 
+      else Node z (merge_parts ~f:(fun pdts -> papply_list (applyN_snd vs f') other_nodes pdts) z_parts)
+  | [], pdts -> Leaf (f (List.map Pdt.unleaf pdts)) 
 
   let rec split_prod = function
     | Leaf (l1, l2) -> (Leaf l1, Leaf l2)
