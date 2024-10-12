@@ -1440,7 +1440,7 @@ module MFormula = struct
 
 end
 
-(* QUESTION: How I'm I supposed to implement the datatype MRegex? I assume it needs more extending? *)
+(* QUESTION: How I'm I supposed to implement the datatype MRegex? I assume it need more extending? *)
 module MRegex = struct
 
   type r = 
