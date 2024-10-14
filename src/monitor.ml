@@ -239,11 +239,12 @@ end
 (* Added by RMHM - explanation to subformulas *) 
 module BufNt = struct
   
-  type ('a, 'b, 'c) t = ('a list * 'b list) * 'c list
+  type ('a, 'c) t = ('a list list) * 'c list
 
   (* Concatenate two lists of strings, where xs are patterns and ys are inputs *)
   let add xs ys (l1, l2) = (l1 @ xs, l2 @ ys)
   
+  (* take head of list *)
   (* Recursively apply a function to each match of regex patterns in the lists *)
   let rec take f w (xs, ys) zs = match (xs, ys), zs with
     | ([], ys), zs -> (w, (([], ys), zs))
@@ -1290,6 +1291,13 @@ module MFormula = struct
   type tss = timestamp list
   type tstps = (timestamp * timepoint) list
 
+  type r = 
+    | MWild 
+    | MTest of int
+    | MPlus of r * r
+    | MConcat of r * r
+    | MStar of r
+
   type t =
     | MTT
     | MFF
@@ -1310,6 +1318,9 @@ module MFormula = struct
     | MAlways       of Interval.t * t * (Expl.t, timestamp * timepoint) Buft.t * Always.t Expl.Pdt.t
     | MSince        of Interval.t * t * t * (Expl.t, Expl.t, timestamp * timepoint) Buf2t.t * Since.t Expl.Pdt.t
     | MUntil        of Interval.t * t * t * (Expl.t, Expl.t, timestamp * timepoint) Buf2t.t * Until.t Expl.Pdt.t
+    (* Added by RMHM *)
+    | MFrex         of Interval.t * r * (Expl.t, timestamp * timepoint) BufNt.t * t list
+    | MPrex         of Interval.t * r * (Expl.t, timestamp * timepoint) BufNt.t * t list
 
   let rec var_tt x = function
     | MTT | MFF -> []
@@ -1411,7 +1422,7 @@ module MFormula = struct
     | MUntil (i, mf1, mf2, buf2t, muaux_pdt), MUntil (i', mf1', mf2', buf2t', muaux_pdt') ->
        Interval.equal i i' && Buf2t.equal buf2t buf2t' Expl.equal Expl.equal tstp_equal &&
          equal mf1 mf1' && equal mf2 mf2' && (Pdt.equal Until.equal) muaux_pdt muaux_pdt'
-    (* TODO: Should be implemented for regexes! QUESTION: How? *)
+    (* TODO: Should be implemented for regexes! *)
     | _ -> failwith "not implemented!"
 
   let rec to_string_rec l = function
@@ -1436,24 +1447,12 @@ module MFormula = struct
                                   (fun x -> to_string_rec 5) g
     | MUntil (i, f, g, _, _) -> Printf.sprintf (Etc.paren l 0 "%a U%a %a") (fun x -> to_string_rec 5) f (fun x -> Interval.to_string) i
                                   (fun x -> to_string_rec 5) g
+    (* TODO: Should be implemented for regexes! *)
   let to_string = to_string_rec 0
 
 end
 
-(* QUESTION: How I'm I supposed to implement the datatype MRegex? I assume it need more extending? *)
-module MRegex = struct
-
-  type r = 
-    | MWild 
-    | MTest of int
-    | MPlus of r * r
-    | MConcat of r * r
-    | MStar of r
-
-end
-
 include MFormula
-include MRegex
 
 let do_neg = function
   | Proof.S sp -> Proof.V (VNeg sp)
