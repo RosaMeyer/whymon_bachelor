@@ -171,7 +171,7 @@ predicate logic, and more advanced features like handling regular expressions *)
     | SAlways of int * int * sp Fdeque.t
     | SSince of sp * sp Fdeque.t
     | SUntil of sp * sp Fdeque.t
-    (* Added to sp so that static propositions can include proofs involving regular expressions *)
+    (* Added so static propositions can include proofs involving regular expressions *)
     | SPrex of int * rsp Fdeque.t
     | SFrex of int * rsp Fdeque.t 
   and vp =
@@ -204,13 +204,12 @@ predicate logic, and more advanced features like handling regular expressions *)
     | VSinceInf of int * int * vp Fdeque.t
     | VUntil of int * vp * vp Fdeque.t
     | VUntilInf of int * int * vp Fdeque.t
-    (* Added to vp to allow variable propositions to reference proofs involving regular expressions *)
+    (* Added so variable propositions to reference proofs involving regular expressions *)
     | VPrexOut of int 
     | VPrex of int * rvp Fdeque.t
     | VFrex of int * rvp Fdeque.t
-  (* Proof system for regex *)
+  (* Added: Proof system for regexes *)
   and rsp =
-    (* Regex extension *)
     | SWild of int                      
     | STest of sp
     | SPlusL of rsp
@@ -219,7 +218,6 @@ predicate logic, and more advanced features like handling regular expressions *)
     | SStarEps of int               
     | SStar of rsp Fdeque.t
     and rvp =
-      (* Regex extension *)
     | VWild of int * int
     | VTest of vp  
     | VTestNeq of int * int  
@@ -267,7 +265,27 @@ predicate logic, and more advanced features like handling regular expressions *)
       | SUntil (sp2, sp1s), SUntil (sp2', sp1s') ->
        s_equal sp2 sp2' && Int.equal (Fdeque.length sp1s) (Fdeque.length sp1s') &&
          Etc.fdeque_for_all2_exn sp1s sp1s' ~f:(fun sp1 sp1' -> s_equal sp1 sp1')
+    (* Added cases for regular expressions *)
+    | SPrex (tp, rsps), SPrex (tp', rsps')
+      | SFrex (tp, rsps), SFrex (tp', rsps') -> Int.equal tp tp' &&
+                                                  Int.equal (Fdeque.length rsps) (Fdeque.length rsps') &&
+                                                  Etc.fdeque_for_all2_exn rsps rsps' ~f:(fun rsp rsp' -> rsp_equal rsp rsp')
     | _ -> false
+
+  (* Added *)
+  and rsp_equal r1 r2 = match r1, r2 with
+    | SWild tp, SWild tp' -> Int.equal tp tp'
+    | STest sp, STest sp' -> s_equal sp sp'
+    | SPlusL r1, SPlusL r2
+      | SPlusR r1, SPlusR r2 -> rsp_equal r1 r2
+    | SConcat (r1, r2), SConcat (r1', r2') -> rsp_equal r1 r1' && rsp_equal r2 r2'
+    | SStarEps tp, SStarEps tp' -> Int.equal tp tp'
+    | SStar rs1, SStar rs2 -> Int.equal (Fdeque.length rs1) (Fdeque.length rs2) &&
+                                Etc.fdeque_for_all2_exn rs1 rs2 ~f:(fun r1 r2 -> rsp_equal r1 r2)
+    | _ -> false
+
+  
+  
   and v_equal x y = match x, y with
     | VFF tp, VFF tp' -> Int.equal tp tp'
     | VEqConst (tp, x, c), VEqConst (tp', x', c') -> Int.equal tp tp' && String.equal x x' && Dom.equal c c'
