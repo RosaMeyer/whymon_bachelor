@@ -15,8 +15,6 @@ module Fdeque = Core.Fdeque
 
 module Part = struct
 
-  (* TODO: add jp and merge_parts - use trival function for joint_parts, merge_part2_raw = merge2 *)
-
   type sub = (Dom.t, Dom.comparator_witness) Setc.t
 
   type 'a t = (sub * 'a) list
@@ -130,6 +128,18 @@ module Part = struct
 
   let split_list_dedup p_eq part = List.map (split_list part) ~f:(dedup p_eq)
 
+  (* QUESTION: What is wrong with the third pattern matching case? 
+  TODO: Use 'trival' function for joint_parts? *)
+  let rec join_parts parts = match parts with 
+    | [] -> [] (* [trivial parts] *)
+    | [part] -> List.map ~f:(fun (sub, x) -> (sub, [x])) part
+    (* "join_parts (part # parts) = merge2 (#) part (join_parts parts)" *)
+    | part :: parts -> merge2 (fun x y -> (x, y)) part (join_parts parts)
+
+  let merge_parts f parts = 
+    let joint_parts = List.map ~f:(fun (sub, xs) -> (sub, f xs)) (join_parts parts) in
+      (joint_parts, parts) (* Returns a tuple with list of joint parts and parts *)
+
 end
 
 
@@ -161,8 +171,7 @@ predicate logic, and more advanced features like handling regular expressions *)
     | SAlways of int * int * sp Fdeque.t
     | SSince of sp * sp Fdeque.t
     | SUntil of sp * sp Fdeque.t
-    (* TODO: integrate existing regex constructs (Wild, Test, Plus, Concat, Star) into the proof system? 
-    Added to sp so that static propositions can include proofs involving regular expressions *)
+    (* Added to sp so that static propositions can include proofs involving regular expressions *)
     | SPrex of int * rsp Fdeque.t
     | SFrex of int * rsp Fdeque.t 
   and vp =
@@ -195,12 +204,11 @@ predicate logic, and more advanced features like handling regular expressions *)
     | VSinceInf of int * int * vp Fdeque.t
     | VUntil of int * vp * vp Fdeque.t
     | VUntilInf of int * int * vp Fdeque.t
-    (* TODO: integrate existing regex constructs (Wild, Test, Plus, Concat, Star) into the proof system? 
-    Added to vp to allow variable propositions to reference proofs involving regular expressions *)
+    (* Added to vp to allow variable propositions to reference proofs involving regular expressions *)
     | VPrexOut of int 
     | VPrex of int * rvp Fdeque.t
     | VFrex of int * rvp Fdeque.t
-  (* TODO: Proof system for regex *)
+  (* Proof system for regex *)
   and rsp =
     (* Regex extension *)
     | SWild of int                      
@@ -210,8 +218,8 @@ predicate logic, and more advanced features like handling regular expressions *)
     | SConcat of rsp * rsp        
     | SStarEps of int               
     | SStar of rsp Fdeque.t
-  and rvp =
-    (* Regex extension *)
+    and rvp =
+      (* Regex extension *)
     | VWild of int * int
     | VTest of vp  
     | VTestNeq of int * int  
@@ -386,7 +394,7 @@ predicate logic, and more advanced features like handling regular expressions *)
                             else s_at (Fdeque.peek_back_exn sp1s)
     | SUntil (sp2, sp1s) -> if Fdeque.is_empty sp1s then s_at sp2
                             else s_at (Fdeque.peek_front_exn sp1s)
-    (* TODO: Regular expression cases for s_at needed? *)
+    (* Added: Regular expression cases for s_at *)
     | SPrex (tp, _) -> tp
     | SFrex (tp, _) -> tp
 
@@ -420,14 +428,12 @@ predicate logic, and more advanced features like handling regular expressions *)
     | VSinceInf (tp, _, _) -> tp
     | VUntil (tp, _, _) -> tp
     | VUntilInf (tp, _, _) -> tp
-    (* TODO: Regular expression cases for v_at needed? *)
+    (* Added: Regular expression cases for v_at *)
     | VPrexOut tp -> tp
     | VFrex (tp, _) -> tp
     | VPrex (tp, _) -> tp
 
-  (* Function to handle regular expressions for s_at 
-  Regex should be pairs? *)
-
+  (* Function to handle regular expressions for s_at - Regex should be pairs *)
   and sr_at = function
     | SWild tp -> (tp, tp + 1)
     | STest sp -> (s_at sp, s_at sp)
@@ -441,7 +447,7 @@ predicate logic, and more advanced features like handling regular expressions *)
                     let (_, tp4) = sr_at (Fdeque.peek_back_exn rsps) in
                     (tp1, tp4)  
 
-  (* Function to handle regular expressions for v_at *)
+  (* Added: Function to handle regular expressions for v_at *)
   and vr_at = function
     | VWild (tp1, tp2) -> (tp1, tp2)
     | VTest vp -> (v_at vp, v_at vp)
@@ -503,7 +509,7 @@ predicate logic, and more advanced features like handling regular expressions *)
                               (Etc.deque_to_string indent' s_to_string sp1s)
     | SUntil (sp2, sp1s) -> Printf.sprintf "%sSUntil{%d}\n%s\n%s" indent (s_at p)
                               (Etc.deque_to_string indent' s_to_string sp1s) (s_to_string indent' sp2)
-    (* TODO: Regex cases *)
+    (* Added: Regex cases *)
     | SPrex (tp, rsps) -> Printf.sprintf "%sSPrex{%d}\n%s" indent tp
                            (Etc.deque_to_string indent' sr_to_string rsps)
     | SFrex (tp, rsps) -> Printf.sprintf "%sSFrex{%d}\n%s" indent tp
@@ -551,7 +557,7 @@ predicate logic, and more advanced features like handling regular expressions *)
                                  (Etc.deque_to_string indent' v_to_string vp2s) (v_to_string indent' vp1)
     | VUntilInf (_, _, vp2s) -> Printf.sprintf "%sVUntilInf{%d}\n%s" indent (v_at p)
                                   (Etc.deque_to_string indent' v_to_string vp2s)
-    (* TODO: Regex cases *)
+    (* Added: Regex cases *)
     | VPrexOut i -> Printf.sprintf "%sVPrexOut{%d}" indent i
     | VPrex (tp, rvps) -> Printf.sprintf "%sVPrex{%d}\n%s" indent tp
                            (Etc.deque_to_string indent' vr_to_string rvps)
@@ -965,17 +971,17 @@ module Pdt = struct
                                            else apply3 vars f (Node (x, part1)) (Node (y, part2)) (Node (z, part3))))))))
     | _ -> raise (Invalid_argument "variable list is empty")
   
-  (* Added by RMHM - extracts the variable from a node *)
+  (* Added: extracts the variable from a node *)
   let var = function
   | Node (x, _) -> x
   | Leaf _ -> raise (Invalid_argument "var is underfined for leafs") 
   
-  (* Added by RMHM - extracts the part from a node *)
+  (* Added: extracts the part from a node *)
   let part = function
   | Node (_, p) -> p
   | Leaf _ -> raise (Invalid_argument "part is undefined for leafs")
       
-  (* Added by RMHM - recursively applies a function to a list ys while modifying it *)
+  (* Added: recursively applies a function to a list ys while modifying it *)
   let rec papply_list f xs ys = match xs, ys with 
   (* Base case: If the first list (xs) is empty apply f to ys *)
   | [], _ -> f ys
@@ -1014,15 +1020,16 @@ module Pdt = struct
     | Leaf _ -> true
     | Node _ -> false
 
-  (* Added by RMHM - implemented apply_pdt (applyN?) after the code from Isabelle Proof system, send by Dmitriy *)  
-  let rec applyN_snd vars f pdts = match vars with
+  (* Added: implemented applyN after the code from Isabelle Proof system, send by Dmitriy *)  
+  let rec applyN vars f pdts = match vars with
     | z :: vars -> 
       let f' = papply_list f (List.map ~f:(fun pdt -> if is_Leaf pdt then Some (unleaf pdt) else None) pdts) in
       let nodes = List.filter ~f:(fun pdt -> not (is_Leaf pdt)) pdts in
       let other_nodes = List.map ~f:(fun pdt -> if String.equal (var pdt) z then None else Some pdt) nodes in
       let z_parts = List.map (List.filter ~f:(fun pdt -> String.equal (var pdt) z) nodes) ~f:(part)
-      in if List.is_empty z_parts then applyN_snd vars f' nodes 
-        else Node (z, (merge_parts ~f:(fun pdts -> papply_list (applyN_snd vars f') other_nodes pdts) z_parts))
+      in if List.is_empty z_parts then applyN vars f' nodes 
+        (* QUESTION: Is this the below line implemented correctly? specifically taking the first elemenet of the tuple? *)
+        else Node (z, fst (Part.merge_parts (fun pdts -> papply_list (applyN vars f') other_nodes pdts) z_parts))
   | [] -> Leaf (f (List.map pdts unleaf)) 
 
   let rec hide vars f_leaf f_node pdt = match vars, pdt with
