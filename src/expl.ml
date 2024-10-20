@@ -131,14 +131,14 @@ module Part = struct
   (* Added: join_parts and merge_parts from N-ary mail from Dmitriy *) 
   (* QUESTION: What is wrong with the third pattern matching case? 
   Use 'trival' function for joint_parts? *)
-  let rec join_parts parts = match parts with 
+  let rec join_parts ps = match ps with 
     | [] -> [] (* [trivial [] *)
-    | [part] -> List.map ~f:(fun (sub, x) -> (sub, [x])) part
-    | part :: parts -> merge2 (fun x y -> x :: y) part (join_parts parts)
+    | [p] -> List.map ~f:(fun (sub, x) -> (sub, [x])) p
+    | p :: ps -> merge2 (fun x y -> x :: y) p (join_parts ps)
 
-  let merge_parts f parts = 
-    let joint_parts = List.map ~f:(fun (sub, xs) -> (sub, f xs)) (join_parts parts) in
-      (joint_parts, parts) (* Returns a tuple with list of joint parts and parts *)
+  let merge_parts f ps = 
+    let joint_parts = List.map ~f:(fun (sub, xs) -> (sub, f xs)) (join_parts ps) in
+      (joint_parts, ps) (* Returns a tuple with list of joint parts and parts *)
 
 end
 
