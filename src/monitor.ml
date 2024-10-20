@@ -1300,6 +1300,7 @@ module MFormula = struct
   type tss = timestamp list
   type tstps = (timestamp * timepoint) list
 
+  (* Added *)
   type r = 
     | MWild 
     | MTest of int
@@ -1327,7 +1328,7 @@ module MFormula = struct
     | MAlways       of Interval.t * t * (Expl.t, timestamp * timepoint) Buft.t * Always.t Expl.Pdt.t
     | MSince        of Interval.t * t * t * (Expl.t, Expl.t, timestamp * timepoint) Buf2t.t * Since.t Expl.Pdt.t
     | MUntil        of Interval.t * t * t * (Expl.t, Expl.t, timestamp * timepoint) Buf2t.t * Until.t Expl.Pdt.t
-    (* Added by RMHM *)
+    (* Added *)
     | MFrex         of Interval.t * r * (Expl.t, timestamp * timepoint) BufNt.t * t list
     | MPrex         of Interval.t * r * (Expl.t, timestamp * timepoint) BufNt.t * t list
 
@@ -1353,6 +1354,9 @@ module MFormula = struct
       | MIff (f, g, _)
       | MSince (_, f, g, _, _)
       | MUntil (_, f, g, _, _) -> var_tt x f @ var_tt x g
+    (* Added - TODO: Not correct, should be implemented for wild, test etc. *)
+    | MFrex (_, _, _, fs) -> failwith "not implemented"
+    | MPrex (_, _, _, fs) -> failwith "not implemented"
 
   let rec init = function
     | Formula.TT -> MTT
@@ -1374,6 +1378,9 @@ module MFormula = struct
     | Formula.Always (i, f) -> MAlways (i, init f, ([], []), Leaf (Always.init ()))
     | Formula.Since (i, f, g) -> MSince (i, init f, init g, (([], []), []), Leaf (Since.init ()))
     | Formula.Until (i, f, g) -> MUntil (i, init f, init g, (([], []), []), Leaf (Until.init ()))
+    (* QUESTION: How? *)
+    | Formula.Frex (i, r) -> failwith "not implemented"
+    | Formula.Prex (i, r) -> failwith "not implemented"
 
   let tss_equal tss tss' =
     match List.for_all2 tss tss' ~f:Int.equal with
@@ -1384,6 +1391,15 @@ module MFormula = struct
     match List.for_all2 tstps tstps' ~f:tstp_equal with
     | Ok b -> b
     | Unequal_lengths -> false
+
+  (* Added *)
+  let rec equal_regex r r' = match r, r' with
+    | MWild, MWild -> true
+    | MTest i, MTest i' -> Int.equal i i'
+    | MPlus (r1, r2), MPlus (r1', r2')
+      | MConcat (r1, r2), MConcat (r1', r2') -> equal_regex r1 r1' && equal_regex r2 r2'
+    | MStar r, MStar r' -> equal_regex r r'
+    | _, _ -> false
 
   let rec equal mf mf' = match mf, mf' with
     | MTT, MTT -> true
@@ -1431,8 +1447,10 @@ module MFormula = struct
     | MUntil (i, mf1, mf2, buf2t, muaux_pdt), MUntil (i', mf1', mf2', buf2t', muaux_pdt') ->
        Interval.equal i i' && Buf2t.equal buf2t buf2t' Expl.equal Expl.equal tstp_equal &&
          equal mf1 mf1' && equal mf2 mf2' && (Pdt.equal Until.equal) muaux_pdt muaux_pdt'
-    (* TODO: Should be implemented for regexes! *)
-    | _ -> failwith "not implemented!"
+    (* QUESTION: Correctly implemented for regexes? *)
+    | MFrex (i, r, buft, fs), MFrex (i', r', buft', fs') 
+      | MPrex (i, r, buft, fs), MPrex (i', r', buft', fs') -> 
+         Interval.equal i i' && equal_regex r r' && BufNt.equal buft buft' Expl.equal tstp_equal && List.for_all2_exn fs fs' ~f:equal    
 
   let rec to_string_rec l = function
     | MTT -> Printf.sprintf "⊤"
@@ -1456,7 +1474,10 @@ module MFormula = struct
                                   (fun x -> to_string_rec 5) g
     | MUntil (i, f, g, _, _) -> Printf.sprintf (Etc.paren l 0 "%a U%a %a") (fun x -> to_string_rec 5) f (fun x -> Interval.to_string) i
                                   (fun x -> to_string_rec 5) g
-    (* TODO: Should be implemented for regexes! *)
+    (* QUESTION: How should this be implemented for regexes? *)
+    | MFrex (i, r, _, fs) -> Printf.sprintf "F%a %a" (fun x -> Interval.to_string) i (fun x -> to_string_rec 5) (List.hd_exn fs)
+    | MPrex (i, r, _, fs) -> Printf.sprintf "P%a %a" (fun x -> Interval.to_string) i (fun x -> to_string_rec 5) (List.hd_exn fs)
+
   let to_string = to_string_rec 0
 
 end
