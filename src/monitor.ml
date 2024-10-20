@@ -11,8 +11,11 @@ open Core
 open Etc
 open Expl
 open Pred
+
+(* QUESTION: Is this necessary? I get an error when it runs and its not in the original monitor.ml file, however I didn' add it... 
 #require "str";;
 open Str
+*)
 
 let minp_list = Proof.Size.minp_list
 let minp_bool = Proof.Size.minp_bool
@@ -236,22 +239,20 @@ module Buf2t = struct
 
 end
 
-(* Added by RMHM - explanation to subformulas, list of lists *) 
+(* Added: explanation to subformulas, list of lists *) 
 module BufNt = struct
   
-  (* Type definition *)
   type ('a, 'c) t = ('a list list) * 'c list
 
-  (* Concatenate lists of strings, where xs are patterns and ys are inputs *)
-  (* Reuse Buf2t.add function but treat both sides as list of lists *)
+  (* Concatenates a list of lists with another pair of lists. Reuse Buf2t.add function but treat both sides as list of lists *)
   let add xs (l1, l2) = Buf2t.add xs [] (l1, l2)
   
   (* Recursively apply a function f to the heads of the nested lists to each match of regex patterns in the lists *)
-  let rec take f w (xs, ys) zs = 
-    let flatten_lists = List.concat in Buf2t_take f w (flatten_lists xs, ys) zs
+  let take f w (xs, ys) zs = 
+    let flatten_lists = List.concat in Buf2t.take f (flatten_lists xs, ys) zs
 
   (* Compare equality between BufNt structures - similar to Buf2t, but here compares lists of lists *)
-  let equal_list_of_lists l1 l2 eq1 = match xs, ys with
+  let rec equal_list_of_lists l1 l2 eq1 = match l1, l2 with
     | [], [] -> true
     (* Comparing the individual lists *)
     | x :: xs', y :: ys' -> equal_list x y eq1 && equal_list_of_lists xs' ys' eq1
