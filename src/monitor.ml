@@ -1392,7 +1392,7 @@ module MFormula = struct
     | Ok b -> b
     | Unequal_lengths -> false
 
-  (* Added *)
+  (* Added - used below *)
   let rec equal_regex r r' = match r, r' with
     | MWild, MWild -> true
     | MTest i, MTest i' -> Int.equal i i'
@@ -1452,6 +1452,14 @@ module MFormula = struct
       | MPrex (i, r, buft, fs), MPrex (i', r', buft', fs') -> 
          Interval.equal i i' && equal_regex r r' && BufNt.equal buft buft' Expl.equal tstp_equal && List.for_all2_exn fs fs' ~f:equal    
 
+  (* Added for to_string_rec*)  
+  let rec regex_string = function
+    | MWild -> "★"
+    | MTest i -> Printf.sprintf "?%d" i
+    | MPlus (r1, r2) -> Printf.sprintf "%s+%s" (regex_string r1) (regex_string r2)
+    | MConcat (r1, r2) -> Printf.sprintf "%s∙%s" (regex_string r1) (regex_string r2)
+    | MStar r -> Printf.sprintf "%s*" (regex_string r)
+
   let rec to_string_rec l = function
     | MTT -> Printf.sprintf "⊤"
     | MFF -> Printf.sprintf "⊥"
@@ -1474,9 +1482,16 @@ module MFormula = struct
                                   (fun x -> to_string_rec 5) g
     | MUntil (i, f, g, _, _) -> Printf.sprintf (Etc.paren l 0 "%a U%a %a") (fun x -> to_string_rec 5) f (fun x -> Interval.to_string) i
                                   (fun x -> to_string_rec 5) g
-    (* QUESTION: How should this be implemented for regexes? *)
-    | MFrex (i, r, _, fs) -> Printf.sprintf "F%a %a" (fun x -> Interval.to_string) i (fun x -> to_string_rec 5) (List.hd_exn fs)
-    | MPrex (i, r, _, fs) -> Printf.sprintf "P%a %a" (fun x -> Interval.to_string) i (fun x -> to_string_rec 5) (List.hd_exn fs)
+    (* QUESTION: Does this make sense? *)
+    (* ◇ = "eventually" or "at some future point, the regular expression holds." *)
+    | MFrex (i, r, _, fs) -> Printf.sprintf (Etc.paren l 5 "◇%a %s %a") 
+                               (fun x -> Interval.to_string) i 
+                               (regex_string r) 
+                               (fun x -> to_string_rec 5) (List.hd_exn fs)
+    | MPrex (i, r, _, fs) -> Printf.sprintf (Etc.paren l 5 "◇%a %s %a")
+                               (fun x -> Interval.to_string) i
+                               (regex_string r)
+                               (fun x -> to_string_rec 5) (List.hd_exn fs)
 
   let to_string = to_string_rec 0
 
