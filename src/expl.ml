@@ -271,18 +271,6 @@ predicate logic, and more advanced features like handling regular expressions *)
                                                   Int.equal (Fdeque.length rsps) (Fdeque.length rsps') &&
                                                   Etc.fdeque_for_all2_exn rsps rsps' ~f:(fun rsp rsp' -> rsp_equal rsp rsp')
     | _ -> false
-
-  (* Added *)
-  and rsp_equal x y = match x, y with
-    | SWild tp, SWild tp' -> Int.equal tp tp'
-    | STest sp, STest sp' -> s_equal sp sp'
-    | SPlusL r1, SPlusL r2
-      | SPlusR r1, SPlusR r2 -> rsp_equal r1 r2
-    | SConcat (r1, r2), SConcat (r1', r2') -> rsp_equal r1 r1' && rsp_equal r2 r2'
-    | SStarEps tp, SStarEps tp' -> Int.equal tp tp'
-    | SStar rs1, SStar rs2 -> Int.equal (Fdeque.length rs1) (Fdeque.length rs2) &&
-                                Etc.fdeque_for_all2_exn rs1 rs2 ~f:(fun r1 r2 -> rsp_equal r1 r2)
-    | _ -> false
   
   and v_equal x y = match x, y with
     | VFF tp, VFF tp' -> Int.equal tp tp'
@@ -344,6 +332,18 @@ predicate logic, and more advanced features like handling regular expressions *)
     | _ -> false
 
   (* Added *)
+  and rsp_equal x y = match x, y with
+    | SWild tp, SWild tp' -> Int.equal tp tp'
+    | STest sp, STest sp' -> s_equal sp sp'
+    | SPlusL r1, SPlusL r2
+      | SPlusR r1, SPlusR r2 -> rsp_equal r1 r2
+    | SConcat (r1, r2), SConcat (r1', r2') -> rsp_equal r1 r1' && rsp_equal r2 r2'
+    | SStarEps tp, SStarEps tp' -> Int.equal tp tp'
+    | SStar rs1, SStar rs2 -> Int.equal (Fdeque.length rs1) (Fdeque.length rs2) &&
+                                Etc.fdeque_for_all2_exn rs1 rs2 ~f:(fun r1 r2 -> rsp_equal r1 r2)
+    | _ -> false 
+    
+  (* Added *)
   and rvp_equal x y = match x, y with
     | VWild (tp1, tp2), VWild (tp1', tp2') -> Int.equal tp1 tp1' && Int.equal tp2 tp2'
     | VTest vp, VTest vp' -> v_equal vp vp'
@@ -355,6 +355,7 @@ predicate logic, and more advanced features like handling regular expressions *)
                                Etc.fdeque_for_all2_exn rs rs' ~f:(fun r r' -> rvp_equal r r')
     | _ -> false
 
+  (* QUESTION: The below (short) functions shouldn't need extending? *)  
   let equal x y = match x, y with
     | S sp, S sp' -> s_equal sp sp'
     | V vp, V vp' -> v_equal vp vp'
@@ -379,6 +380,9 @@ predicate logic, and more advanced features like handling regular expressions *)
   let s_append sp sp1 = match sp with
     | SSince (sp2, sp1s) -> SSince (sp2, Fdeque.enqueue_back sp1s sp1)
     | SUntil (sp2, sp1s) -> SUntil (sp2, Fdeque.enqueue_back sp1s sp1)
+    (* Added: QUESTION: necessary? *)
+    | SPrex (tp, rvps) -> SPrex (tp, Fdeque.enqueue_back rvps (STest sp1))
+    | SFrex (tp, rvps) -> SFrex (tp, Fdeque.enqueue_back rvps (STest sp1))
     | _ -> raise (Invalid_argument "sappend is not defined for this sp")
 
   let v_append vp vp2 = match vp with
@@ -386,6 +390,10 @@ predicate logic, and more advanced features like handling regular expressions *)
     | VSinceInf (tp, etp, vp2s) -> VSinceInf (tp, etp, Fdeque.enqueue_back vp2s vp2)
     | VUntil (tp, vp1, vp2s) -> VUntil (tp, vp1, Fdeque.enqueue_back vp2s vp2)
     | VUntilInf (tp, ltp, vp2s) -> VUntilInf (tp, ltp, Fdeque.enqueue_back vp2s vp2)
+    (* Added: QUESTION: necessary? *)
+    | VPrexOut tp -> VPrexOut tp
+    | VPrex (tp, rvps) -> VPrex (tp, Fdeque.enqueue_back rvps (VTest vp2))
+    | VFrex (tp, rvps) -> VFrex (tp, Fdeque.enqueue_back rvps (VTest vp2))
     | _ -> raise (Invalid_argument "vappend is not defined for this vp")
 
   let s_drop = function
@@ -467,7 +475,7 @@ predicate logic, and more advanced features like handling regular expressions *)
     | VFrex (tp, _) -> tp
     | VPrex (tp, _) -> tp
 
-  (* Function to handle regular expressions for s_at - Regex should be pairs *)
+  (* Added: Function to handle regular expressions for s_at *)
   and sr_at = function
     | SWild tp -> (tp, tp + 1)
     | STest sp -> (s_at sp, s_at sp)
@@ -598,6 +606,7 @@ predicate logic, and more advanced features like handling regular expressions *)
     | VFrex (tp, rvps) -> Printf.sprintf "%sVFrex{%d}\n%s" indent' tp 
                            (Etc.deque_to_string indent' vr_to_string rvps)
 
+    (* Added *)                       
     and sr_to_string indent = function
     | SWild tp -> Printf.sprintf "%sSWild{%d}" indent tp
     | STest sp -> Printf.sprintf "%sSTest{%d}\n%s" indent (s_at sp) (s_to_string indent sp)
@@ -607,6 +616,7 @@ predicate logic, and more advanced features like handling regular expressions *)
     | SStarEps tp -> Printf.sprintf "%sSStarEps{%d}" indent tp
     | SStar rsps -> Printf.sprintf "%sSStar{%d}\n%s" indent (fst (sr_at (Fdeque.peek_front_exn rsps))) (Etc.deque_to_string indent sr_to_string rsps)
 
+    (* Added *) 
     and vr_to_string indent = function
     | VWild (tp1, tp2) -> Printf.sprintf "%sVWild{%d, %d}" indent tp1 tp2
     | VTest vp -> Printf.sprintf "%sVTest{%d}\n%s" indent (v_at vp) (v_to_string indent vp)
@@ -858,8 +868,9 @@ predicate logic, and more advanced features like handling regular expressions *)
       | SAlways (_, _, sps) -> 1 + sum s sps
       | SSince (sp2, sp1s) -> 1 + s sp2 + sum s sp1s
       | SUntil (sp2, sp1s) -> 1 + s sp2 + sum s sp1s
-      | SPrex (_, sps) -> 1 + sum sr sps
-      | SFrex (_, sps) -> 1 + sum sr sps
+      (* Added *)
+      | SPrex (_, sps)
+        | SFrex (_, sps) -> 1 + sum sr sps
     and v = function
       | VFF _ -> 1
       | VEqConst _ -> 1
@@ -890,10 +901,12 @@ predicate logic, and more advanced features like handling regular expressions *)
       | VSinceInf (_, _, vp2s) -> 1 + sum v vp2s
       | VUntil (_, vp1, vp2s) -> 1 + v vp1 + sum v vp2s
       | VUntilInf (_, _, vp2s) -> 1 + sum v vp2s
+      (* Added *) 
       | VPrexOut _ -> 1
-      | VPrex (_, vps) -> 1 + sum vr vps
-      | VFrex (_, vps) -> 1 + sum vr vps
+      | VPrex (_, vps) 
+        | VFrex (_, vps) -> 1 + sum vr vps
 
+    (* Added *)     
     and sr = function
       | SWild _ -> 1
       | STest sp -> 1 + s sp
@@ -903,13 +916,14 @@ predicate logic, and more advanced features like handling regular expressions *)
       | SStarEps _ -> 1
       | SStar rsp -> 1 + sum sr rsp (* List of regex proofs *)
 
+    (* Added *)   
     and vr = function
       | VWild _ -> 1
       | VTest vp -> 1 + v vp
       | VTestNeq (_, _) -> 1
       | VPlus (vrp1, vrp2) -> 1 + vr vrp1 + vr vrp2
-      | VConcat vrps -> 1 + sum vr vrps (* List of regex proofs *)
-      | VStar vrps -> 1 + sum vr vrps (* List of regex proofs *)
+      | VConcat vrps
+        | VStar vrps -> 1 + sum vr vrps (* List of regex proofs *)
 
     let p = function
       | S s_p -> s s_p
