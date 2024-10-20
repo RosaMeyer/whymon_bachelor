@@ -236,34 +236,42 @@ module Buf2t = struct
 
 end
 
-(* Added by RMHM - explanation to subformulas *) 
+(* Added by RMHM - explanation to subformulas, list of lists *) 
 module BufNt = struct
   
+  (* Type definition *)
   type ('a, 'c) t = ('a list list) * 'c list
 
-  (* Concatenate two lists of strings, where xs are patterns and ys are inputs *)
-  let add xs ys (l1, l2) = (l1 @ xs, l2 @ ys)
+  (* Concatenate lists of strings, where xs are patterns and ys are inputs *)
+  (* Reuse Buf2t.add function but treat both sides as list of lists *)
+  let add xs (l1, l2) = Buf2t.add xs [] (l1, l2)
   
-  (* take head of list *)
-  (* Recursively apply a function to each match of regex patterns in the lists *)
-  let rec take f w (xs, ys) zs = match (xs, ys), zs with
-    | ([], ys), zs -> (w, (([], ys), zs))
-    | (xs, []), zs -> (w, ((xs, []), zs))
-    | (xs, ys), [] -> (w, ((xs, ys), []))
-    | (x::xs, y::ys), (a,b)::zs ->
-      if Str.string_match (Str.regexp x) a 0 then
-        take f (f x y a b w) (xs, ys) zs 
-      else
-        take f w (xs, ys) zs
+  (* Recursively apply a function f to the heads of the nested lists to each match of regex patterns in the lists *)
+  let rec take f w (xs, ys) zs = 
+    let flatten_lists = List.concat in Buf2t_take f w (flatten_lists xs, ys) zs
 
-  (* Compare two BufNt structures - QUESTION: Do we need this for regexes as well? *)
-  let equal bufnt bufnt' eq1 eq2 eq3 =
-    let equal_component c1 c2 f = match List.for_all2 c1 c2 ~f with
-      | Ok b -> b
-      | Unequal_lengths -> false in
-    equal_component (fst (fst bufnt)) (fst (fst bufnt')) eq1 &&
-      equal_component (snd (fst bufnt)) (snd (fst bufnt')) eq2 &&
-        equal_component (snd bufnt) (snd bufnt') eq3
+  (* Compare equality between BufNt structures - similar to Buf2t, but here compares lists of lists *)
+  let equal_list_of_lists l1 l2 eq1 = match xs, ys with
+    | [], [] -> true
+    (* Comparing the individual lists *)
+    | x :: xs', y :: ys' -> equal_list x y eq1 && equal_list_of_lists xs' ys' eq1
+    | _, _ -> false (* Unequal lengths *)
+
+  (* Helper function to compare individual lists *)
+  and equal_list x y eq1 = match x, y with
+  | [], [] -> true
+  | h1 :: t1, h2 :: t2 -> eq1 h1 h2 && equal_list t1 t2 eq1
+  | _, _ -> false  (* Unequal lengths *)
+
+  (* Compares equality between two BufNt structures QUESTION: How should this function work? *)
+  let rec equal (bufnt1: ('a, 'c) t) (bufnt2: ('a, 'c) t) eq1 eq2 = match bufnt1, bufnt2 with
+    | (xs1, xs2), (ys1, ys2) -> equal_list_of_lists xs1 ys1 eq1 && equal_simple_list xs2 ys2 eq2
+
+  (* Helper function to compare the simple lists *)
+  and equal_simple_list xs ys eq2 = match xs, ys with
+    | [], [] -> true
+    | h1 :: t1, h2 :: t2 -> eq2 h1 h2 && equal_simple_list t1 t2 eq2
+    | _, _ -> false  (* Unequal lengths *)  
 
 end
 
