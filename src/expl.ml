@@ -273,7 +273,7 @@ predicate logic, and more advanced features like handling regular expressions *)
     | _ -> false
 
   (* Added *)
-  and rsp_equal r1 r2 = match r1, r2 with
+  and rsp_equal x y = match x, y with
     | SWild tp, SWild tp' -> Int.equal tp tp'
     | STest sp, STest sp' -> s_equal sp sp'
     | SPlusL r1, SPlusL r2
@@ -283,8 +283,6 @@ predicate logic, and more advanced features like handling regular expressions *)
     | SStar rs1, SStar rs2 -> Int.equal (Fdeque.length rs1) (Fdeque.length rs2) &&
                                 Etc.fdeque_for_all2_exn rs1 rs2 ~f:(fun r1 r2 -> rsp_equal r1 r2)
     | _ -> false
-
-  
   
   and v_equal x y = match x, y with
     | VFF tp, VFF tp' -> Int.equal tp tp'
@@ -337,6 +335,24 @@ predicate logic, and more advanced features like handling regular expressions *)
        Int.equal tp tp' && Int.equal htp hi' &&
          Int.equal (Fdeque.length vp2s) (Fdeque.length vp2s') &&
            Etc.fdeque_for_all2_exn vp2s vp2s' ~f:(fun vp2 vp2' -> v_equal vp2 vp2')
+    (* Added cases for regular expressions *)
+    | VPrexOut tp, VPrexOut tp' -> Int.equal tp tp'
+    | VPrex (tp, rvps), VPrex (tp', rvps')
+      | VFrex (tp, rvps), VFrex (tp', rvps') -> Int.equal tp tp' &&
+                                                  Int.equal (Fdeque.length rvps) (Fdeque.length rvps') &&
+                                                  Etc.fdeque_for_all2_exn rvps rvps' ~f:(fun rvp rvp' -> rvp_equal rvp rvp')
+    | _ -> false
+
+  (* Added *)
+  and rvp_equal x y = match x, y with
+    | VWild (tp1, tp2), VWild (tp1', tp2') -> Int.equal tp1 tp1' && Int.equal tp2 tp2'
+    | VTest vp, VTest vp' -> v_equal vp vp'
+    | VTestNeq (tp1, tp2), VTestNeq (tp1', tp2') -> Int.equal tp1 tp1' && Int.equal tp2 tp2'
+    | VPlus (r1, r2), VPlus (r1', r2') -> rvp_equal r1 r1' && rvp_equal r2 r2'
+    | VConcat rs, VConcat rs' -> Int.equal (Fdeque.length rs) (Fdeque.length rs') &&
+                                       Etc.fdeque_for_all2_exn rs rs' ~f:(fun r r' -> rvp_equal r r')
+    | VStar rs, VStar rs' -> Int.equal (Fdeque.length rs) (Fdeque.length rs') && 
+                               Etc.fdeque_for_all2_exn rs rs' ~f:(fun r r' -> rvp_equal r r')
     | _ -> false
 
   let equal x y = match x, y with
