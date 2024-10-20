@@ -128,13 +128,13 @@ module Part = struct
 
   let split_list_dedup p_eq part = List.map (split_list part) ~f:(dedup p_eq)
 
+  (* Added: join_parts and merge_parts from N-ary mail from Dmitriy *) 
   (* QUESTION: What is wrong with the third pattern matching case? 
-  TODO: Use 'trival' function for joint_parts? *)
+  Use 'trival' function for joint_parts? *)
   let rec join_parts parts = match parts with 
-    | [] -> [] (* [trivial parts] *)
+    | [] -> [] (* [trivial [] *)
     | [part] -> List.map ~f:(fun (sub, x) -> (sub, [x])) part
-    (* "join_parts (part # parts) = merge2 (#) part (join_parts parts)" *)
-    | part :: parts -> merge2 (fun x y -> (x, y)) part (join_parts parts)
+    | part :: parts -> merge2 (fun x y -> x :: y) part (join_parts parts)
 
   let merge_parts f parts = 
     let joint_parts = List.map ~f:(fun (sub, xs) -> (sub, f xs)) (join_parts parts) in
