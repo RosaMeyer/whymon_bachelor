@@ -362,9 +362,8 @@ let op_to_string = function
   | Frex (i, _) -> Printf.sprintf "F%s" (Interval.to_string i) (* TODO: triangle symbol *)
   | Prex (i, _) -> Printf.sprintf "P%s" (Interval.to_string i)
 
-(* TODO: Is this what is how I was supposed to think about the function? *)
 and op_to_string_regex = function
-  | Wild -> Printf.sprintf "Wild" (* TODO: Black star *)
+  | Wild -> Printf.sprintf "★" (* TODO: Check if this should be updated somewhere *)
   | Test _ -> Printf.sprintf "?" (* Handles regexes that test for formula, f, printing it in the form (f), where f is represented by op_to_string *)
   | Plus _ -> Printf.sprintf "+" 
   | Concat _ -> Printf.sprintf "∙"
