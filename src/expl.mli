@@ -120,6 +120,8 @@ module Proof : sig
   val s_equal: sp -> sp -> bool
   val v_equal: vp -> vp -> bool
   val equal: t -> t -> bool
+  val rsp_equal: rsp -> rsp -> bool
+  val rvp_equal: rvp -> rvp -> bool
 
   val unS: t -> sp
   val unV: t -> vp
@@ -133,7 +135,6 @@ module Proof : sig
 
   val s_at: sp -> int
   val v_at: vp -> int
-  (* TODO: Is this correctly added? Regex should be pairs? *)
   val sr_at: rsp -> int * int
   val vr_at: rvp -> int * int
   val p_at: t -> int

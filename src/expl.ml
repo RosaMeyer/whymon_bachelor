@@ -355,7 +355,7 @@ predicate logic, and more advanced features like handling regular expressions *)
                                Etc.fdeque_for_all2_exn rs rs' ~f:(fun r r' -> rvp_equal r r')
     | _ -> false
 
-  (* QUESTION: The below (short) functions shouldn't need extending? *)  
+  (* QUESTION: The below (shorter) functions shouldn't need extending? *)  
   let equal x y = match x, y with
     | S sp, S sp' -> s_equal sp sp'
     | V vp, V vp' -> v_equal vp vp'
@@ -380,9 +380,6 @@ predicate logic, and more advanced features like handling regular expressions *)
   let s_append sp sp1 = match sp with
     | SSince (sp2, sp1s) -> SSince (sp2, Fdeque.enqueue_back sp1s sp1)
     | SUntil (sp2, sp1s) -> SUntil (sp2, Fdeque.enqueue_back sp1s sp1)
-    (* Added: QUESTION: necessary? *)
-    | SPrex (tp, rvps) -> SPrex (tp, Fdeque.enqueue_back rvps (STest sp1))
-    | SFrex (tp, rvps) -> SFrex (tp, Fdeque.enqueue_back rvps (STest sp1))
     | _ -> raise (Invalid_argument "sappend is not defined for this sp")
 
   let v_append vp vp2 = match vp with
@@ -390,10 +387,6 @@ predicate logic, and more advanced features like handling regular expressions *)
     | VSinceInf (tp, etp, vp2s) -> VSinceInf (tp, etp, Fdeque.enqueue_back vp2s vp2)
     | VUntil (tp, vp1, vp2s) -> VUntil (tp, vp1, Fdeque.enqueue_back vp2s vp2)
     | VUntilInf (tp, ltp, vp2s) -> VUntilInf (tp, ltp, Fdeque.enqueue_back vp2s vp2)
-    (* Added: QUESTION: necessary? *)
-    | VPrexOut tp -> VPrexOut tp
-    | VPrex (tp, rvps) -> VPrex (tp, Fdeque.enqueue_back rvps (VTest vp2))
-    | VFrex (tp, rvps) -> VFrex (tp, Fdeque.enqueue_back rvps (VTest vp2))
     | _ -> raise (Invalid_argument "vappend is not defined for this vp")
 
   let s_drop = function
