@@ -244,35 +244,18 @@ module BufNt = struct
   
   type ('a, 'c) t = ('a list list) * 'c list
 
-  (* Concatenates a list of lists with another pair of lists. Reuse Buf2t.add function but treat both sides as list of lists *)
-  let add xs (l1, l2) = Buf2t.add xs [] (l1, l2)
+  (* TODO:: Concatenates a list of lists with lsit og lists - List.map2 *)
+  let add xs (l1, l2) = Buf2t.add xs [] (l1, l2) 
   
   (* Recursively apply a function f to the heads of the nested lists to each match of regex patterns in the lists *)
   let take f w (xs, ys) zs = 
     let flatten_lists = List.concat in Buf2t.take f (flatten_lists xs, ys) zs
 
   (* Compare equality between BufNt structures - similar to Buf2t, but here compares lists of lists *)
-  let rec equal_list_of_lists l1 l2 eq1 = match l1, l2 with
-    | [], [] -> true
-    (* Comparing the individual lists *)
-    | x :: xs', y :: ys' -> equal_list x y eq1 && equal_list_of_lists xs' ys' eq1
-    | _, _ -> false (* Unequal lengths *)
 
-  (* Helper function to compare individual lists *)
-  and equal_list x y eq1 = match x, y with
-  | [], [] -> true
-  | h1 :: t1, h2 :: t2 -> eq1 h1 h2 && equal_list t1 t2 eq1
-  | _, _ -> false  (* Unequal lengths *)
-
-  (* Compares equality between two BufNt structures QUESTION: How should this function work? *)
-  let rec equal (bufnt1: ('a, 'c) t) (bufnt2: ('a, 'c) t) eq1 eq2 = match bufnt1, bufnt2 with
-    | (xs1, xs2), (ys1, ys2) -> equal_list_of_lists xs1 ys1 eq1 && equal_simple_list xs2 ys2 eq2
-
-  (* Helper function to compare the simple lists *)
-  and equal_simple_list xs ys eq2 = match xs, ys with
-    | [], [] -> true
-    | h1 :: t1, h2 :: t2 -> eq2 h1 h2 && equal_simple_list t1 t2 eq2
-    | _, _ -> false  (* Unequal lengths *)  
+  (* Compares equality between two BufNt structures *)
+  let equal (bufnt1: ('a, 'c) t) (bufnt2: ('a, 'c) t) eq1 eq2 = match bufnt1, bufnt2 with
+    | (xs1, xs2), (ys1, ys2) -> List.equal (List.equal eq1) xs1 ys1 && List.equal eq2 xs2 ys2
 
 end
 
@@ -1267,6 +1250,18 @@ module Until = struct
 
 end
 
+
+(* Added - TODO: implement *)
+module Frex = struct
+
+end
+
+(* Added - TDOD: implement *)
+module Prex = struct
+
+end
+
+
 module Prev_Next = struct
 
   type operator = Prev | Next
@@ -1354,7 +1349,7 @@ module MFormula = struct
       | MIff (f, g, _)
       | MSince (_, f, g, _, _)
       | MUntil (_, f, g, _, _) -> var_tt x f @ var_tt x g
-    (* Added - TODO: Not correct, should be implemented for wild, test etc. *)
+    (* Added - TODO: Not correct, should be implemented for wild, test etc. - stored in predicate case, recursive calls, append or concat *)
     | MFrex (_, _, _, fs) -> failwith "not implemented"
     | MPrex (_, _, _, fs) -> failwith "not implemented"
 
@@ -1379,7 +1374,7 @@ module MFormula = struct
     | Formula.Since (i, f, g) -> MSince (i, init f, init g, (([], []), []), Leaf (Since.init ()))
     | Formula.Until (i, f, g) -> MUntil (i, init f, init g, (([], []), []), Leaf (Until.init ()))
     (* QUESTION: How? *)
-    | Formula.Frex (i, r) -> failwith "not implemented"
+    | Formula.Frex (i, r) -> failwith "not implemented" 
     | Formula.Prex (i, r) -> failwith "not implemented"
 
   let tss_equal tss tss' =
@@ -1447,7 +1442,7 @@ module MFormula = struct
     | MUntil (i, mf1, mf2, buf2t, muaux_pdt), MUntil (i', mf1', mf2', buf2t', muaux_pdt') ->
        Interval.equal i i' && Buf2t.equal buf2t buf2t' Expl.equal Expl.equal tstp_equal &&
          equal mf1 mf1' && equal mf2 mf2' && (Pdt.equal Until.equal) muaux_pdt muaux_pdt'
-    (* QUESTION: Correctly implemented for regexes? *)
+    (* Added  *)
     | MFrex (i, r, buft, fs), MFrex (i', r', buft', fs') 
       | MPrex (i, r, buft, fs), MPrex (i', r', buft', fs') -> 
          Interval.equal i i' && equal_regex r r' && BufNt.equal buft buft' Expl.equal tstp_equal && List.for_all2_exn fs fs' ~f:equal    
@@ -1483,12 +1478,11 @@ module MFormula = struct
     | MUntil (i, f, g, _, _) -> Printf.sprintf (Etc.paren l 0 "%a U%a %a") (fun x -> to_string_rec 5) f (fun x -> Interval.to_string) i
                                   (fun x -> to_string_rec 5) g
     (* QUESTION: Does this make sense? *)
-    (* ◇ = "eventually" or "at some future point, the regular expression holds." *)
-    | MFrex (i, r, _, fs) -> Printf.sprintf (Etc.paren l 5 "◇%a %s %a") 
+    | MFrex (i, r, _, fs) -> Printf.sprintf (Etc.paren l 5 "FREX%a %s %a") (* TODO: change FREX to unicode symbol *)
                                (fun x -> Interval.to_string) i 
                                (regex_string r) 
                                (fun x -> to_string_rec 5) (List.hd_exn fs)
-    | MPrex (i, r, _, fs) -> Printf.sprintf (Etc.paren l 5 "◇%a %s %a")
+    | MPrex (i, r, _, fs) -> Printf.sprintf (Etc.paren l 5 "PREX%a %s %a")
                                (fun x -> Interval.to_string) i
                                (regex_string r)
                                (fun x -> to_string_rec 5) (List.hd_exn fs)
@@ -1760,7 +1754,11 @@ let rec meval vars ts tp (db: Db.t) is_vis = function
      let expls' = Pdt.split_list es' in
      let expls'' = List.map expls' ~f:(Pdt.reduce Proof.equal) in
      let muaux_pdt'' = if is_vis then muaux_pdt' else Pdt.reduce Until.equal muaux_pdt' in
-     (expls'', MUntil (i, mf1', mf2', (buf2', ntstps'), muaux_pdt''))
+     (expls'', MUntil (i, mf1', mf2', (buf2', ntstps'), muaux_pdt'')) 
+  | MPrex (i, mr, buft, mfs) -> 
+     let (zss, mfs') = List.unzip (List.map mfs ~f:(fun mf -> meval vars ts tp db is_vis mf)) in
+     let buf' = 
+  
 
 module MState = struct
 

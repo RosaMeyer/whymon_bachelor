@@ -129,16 +129,14 @@ module Part = struct
   let split_list_dedup p_eq part = List.map (split_list part) ~f:(dedup p_eq)
 
   (* Added: join_parts and merge_parts from N-ary mail from Dmitriy *) 
-  (* QUESTION: What is wrong with the third pattern matching case? 
-  Use 'trival' function for joint_parts? *)
   let rec join_parts ps = match ps with 
-    | [] -> [] (* [trivial [] *)
+    | [] -> trivial []
     | [p] -> List.map ~f:(fun (sub, x) -> (sub, [x])) p
     | p :: ps -> merge2 (fun x y -> x :: y) p (join_parts ps)
 
   let merge_parts f ps = 
     let joint_parts = List.map ~f:(fun (sub, xs) -> (sub, f xs)) (join_parts ps) in
-      (joint_parts, ps) (* Returns a tuple with list of joint parts and parts *)
+      joint_parts
 
 end
 
@@ -172,8 +170,8 @@ predicate logic, and more advanced features like handling regular expressions *)
     | SSince of sp * sp Fdeque.t
     | SUntil of sp * sp Fdeque.t
     (* Added so static propositions can include proofs involving regular expressions *)
-    | SPrex of int * rsp Fdeque.t
-    | SFrex of int * rsp Fdeque.t 
+    | SPrex of rsp
+    | SFrex of rsp
   and vp =
     | VFF of int
     | VEqConst of int * string * Dom.t
@@ -430,8 +428,8 @@ predicate logic, and more advanced features like handling regular expressions *)
     | SUntil (sp2, sp1s) -> if Fdeque.is_empty sp1s then s_at sp2
                             else s_at (Fdeque.peek_front_exn sp1s)
     (* Added: Regular expression cases for s_at *)
-    | SPrex (tp, _) -> tp
-    | SFrex (tp, _) -> tp
+    | SPrex rsp -> snd (sr_at rsp)
+    | SFrex rsp -> fst (sr_at rsp) (* check naming *)
 
   and v_at = function
     | VFF tp -> tp
@@ -465,7 +463,7 @@ predicate logic, and more advanced features like handling regular expressions *)
     | VUntilInf (tp, _, _) -> tp
     (* Added: Regular expression cases for v_at *)
     | VPrexOut tp -> tp
-    | VFrex (tp, _) -> tp
+    | VFrex (tp, _) -> tp (* double check with Andre *)
     | VPrex (tp, _) -> tp
 
   (* Added: Function to handle regular expressions for s_at *)
@@ -545,10 +543,8 @@ predicate logic, and more advanced features like handling regular expressions *)
     | SUntil (sp2, sp1s) -> Printf.sprintf "%sSUntil{%d}\n%s\n%s" indent (s_at p)
                               (Etc.deque_to_string indent' s_to_string sp1s) (s_to_string indent' sp2)
     (* Added: Regex cases *)
-    | SPrex (tp, rsps) -> Printf.sprintf "%sSPrex{%d}\n%s" indent tp
-                           (Etc.deque_to_string indent' sr_to_string rsps)
-    | SFrex (tp, rsps) -> Printf.sprintf "%sSFrex{%d}\n%s" indent tp
-                           (Etc.deque_to_string indent' sr_to_string rsps)
+    | SPrex rsp -> Printf.sprintf "%sSPrex{%d}\n%s" indent (s_at p) (sr_to_string indent' rsp)
+    | SFrex rsp -> Printf.sprintf "%sSFrex{%d}\n%s" indent (s_at p) (sr_to_string indent' rsp)
 
   and v_to_string indent p =
     let indent' = "    " ^ indent in
@@ -862,8 +858,8 @@ predicate logic, and more advanced features like handling regular expressions *)
       | SSince (sp2, sp1s) -> 1 + s sp2 + sum s sp1s
       | SUntil (sp2, sp1s) -> 1 + s sp2 + sum s sp1s
       (* Added *)
-      | SPrex (_, sps)
-        | SFrex (_, sps) -> 1 + sum sr sps
+      | SPrex rsp
+        | SFrex rsp -> 1 + sr rsp
     and v = function
       | VFF _ -> 1
       | VEqConst _ -> 1
@@ -1069,8 +1065,7 @@ module Pdt = struct
       let other_nodes = List.map ~f:(fun pdt -> if String.equal (var pdt) z then None else Some pdt) nodes in
       let z_parts = List.map (List.filter ~f:(fun pdt -> String.equal (var pdt) z) nodes) ~f:(part)
       in if List.is_empty z_parts then applyN vars f' nodes 
-        (* QUESTION: Is this the below line implemented correctly? specifically taking the first elemenet of the tuple? *)
-        else Node (z, fst (Part.merge_parts (fun pdts -> papply_list (applyN vars f') other_nodes pdts) z_parts))
+        else Node (z, (Part.merge_parts (fun pdts -> papply_list (applyN vars f') other_nodes pdts) z_parts))
   | [] -> Leaf (f (List.map pdts unleaf)) 
 
   let rec hide vars f_leaf f_node pdt = match vars, pdt with
