@@ -363,13 +363,13 @@ let op_to_string = function
   | Prex (i, _) -> Printf.sprintf "P%s" (Interval.to_string i)
 
 and op_to_string_regex = function
-  | Wild -> Printf.sprintf "★" (* TODO: Check if this should be updated somewhere *)
-  | Test _ -> Printf.sprintf "?" (* Handles regexes that test for formula, f, printing it in the form (f), where f is represented by op_to_string *)
+  | Wild -> Printf.sprintf "★" (* TODO: Check if this symbol should be updated somewhere *)
+  | Test _ -> Printf.sprintf "?" 
   | Plus _ -> Printf.sprintf "+" 
   | Concat _ -> Printf.sprintf "∙"
   | Star _ -> Printf.sprintf "*"
 
-(* TODO: edit comment - prints the output, send to visulazation *)
+(* Added: edit comment - prints the output, send to visulazation *)
 let rec to_string_rec l json = function
   | TT -> Printf.sprintf "⊤"
   | FF -> Printf.sprintf "⊥"

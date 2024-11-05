@@ -202,7 +202,7 @@ predicate logic, and more advanced features like handling regular expressions *)
     | VSinceInf of int * int * vp Fdeque.t
     | VUntil of int * vp * vp Fdeque.t
     | VUntilInf of int * int * vp Fdeque.t
-    (* Added so variable propositions to reference proofs involving regular expressions *)
+    (* Added so variable propositions to reference proofs involves regular expressions *)
     | VPrexOut of int 
     | VPrex of int * rvp Fdeque.t
     | VFrex of int * rvp Fdeque.t
@@ -263,7 +263,7 @@ predicate logic, and more advanced features like handling regular expressions *)
       | SUntil (sp2, sp1s), SUntil (sp2', sp1s') ->
        s_equal sp2 sp2' && Int.equal (Fdeque.length sp1s) (Fdeque.length sp1s') &&
          Etc.fdeque_for_all2_exn sp1s sp1s' ~f:(fun sp1 sp1' -> s_equal sp1 sp1')
-    (* Added cases for regular expressions *)
+    (* Added cases for regular expressions - QUESTION: Why does this not work? *)
     | SPrex (tp, rsps), SPrex (tp', rsps')
       | SFrex (tp, rsps), SFrex (tp', rsps') -> Int.equal tp tp' &&
                                                   Int.equal (Fdeque.length rsps) (Fdeque.length rsps') &&
@@ -710,6 +710,7 @@ predicate logic, and more advanced features like handling regular expressions *)
          (String.concat ~sep:"&" (Fdeque.to_list (Fdeque.map sp1s ~f:(fun sp -> "{" ^ (s_to_latex indent' v idx sp f) ^ "}"))))
          (s_to_latex indent' v idx sp2 g)
     | _ -> ""
+
   and v_to_latex indent v idx p (h: Formula.t) =
     let indent' = "\t" ^ indent in
     match p, h with
@@ -1057,7 +1058,7 @@ module Pdt = struct
     | Leaf _ -> true
     | Node _ -> false
 
-  (* Added: implemented applyN after the code from Isabelle Proof system, send by Dmitriy *)  
+  (* Added: implemented applyN after the code from Isabelle Proof system (N-ary), send by Dmitriy *)  
   let rec applyN vars f pdts = match vars with
     | z :: vars -> 
       let f' = papply_list f (List.map ~f:(fun pdt -> if is_Leaf pdt then Some (unleaf pdt) else None) pdts) in

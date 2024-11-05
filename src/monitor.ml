@@ -12,7 +12,7 @@ open Etc
 open Expl
 open Pred
 
-(* QUESTION: Is this necessary? I get an error when it runs and its not in the original monitor.ml file, however I didn' add it... 
+(* QUESTION: Ask Leonardo. Is this necessary? I get an error when it runs and its not in the original monitor.ml file, however I didn' add it... 
 #require "str";;
 open Str
 *)
@@ -1759,7 +1759,7 @@ let rec meval vars ts tp (db: Db.t) is_vis = function
      let (zss, mfs') = List.unzip (List.map mfs ~f:(fun mf -> meval vars ts tp db is_vis mf)) in
      let buf' = 
   
-
+(* QUESTION: Why does this suddenly not work? *)
 module MState = struct
 
   type t = { mf: MFormula.t
