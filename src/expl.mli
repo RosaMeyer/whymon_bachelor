@@ -62,8 +62,8 @@ module Proof : sig
     | SAlways of int * int * sp Fdeque.t
     | SSince of sp * sp Fdeque.t
     | SUntil of sp * sp Fdeque.t
-    | SPrex of int * rsp Fdeque.t
-    | SFrex of int * rsp Fdeque.t 
+    | SPrex of rsp
+    | SFrex of rsp 
   and vp =
     | VFF of int
     | VEqConst of int * string * Dom.t
