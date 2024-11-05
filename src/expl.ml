@@ -263,11 +263,15 @@ predicate logic, and more advanced features like handling regular expressions *)
       | SUntil (sp2, sp1s), SUntil (sp2', sp1s') ->
        s_equal sp2 sp2' && Int.equal (Fdeque.length sp1s) (Fdeque.length sp1s') &&
          Etc.fdeque_for_all2_exn sp1s sp1s' ~f:(fun sp1 sp1' -> s_equal sp1 sp1')
-    (* Added cases for regular expressions - QUESTION: Why does this not work? *)
+    (* Added cases for regular expressions - QUESTION: The outcommented code has a type mismatch, I assume it's because we changed the type definiton of SPrex and SFrex? *)
+    (*
     | SPrex (tp, rsps), SPrex (tp', rsps')
       | SFrex (tp, rsps), SFrex (tp', rsps') -> Int.equal tp tp' &&
                                                   Int.equal (Fdeque.length rsps) (Fdeque.length rsps') &&
-                                                  Etc.fdeque_for_all2_exn rsps rsps' ~f:(fun rsp rsp' -> rsp_equal rsp rsp')
+                                                  Etc.fdeque_for_all2_exn rsps rsps' ~f:(fun rsp rsp' -> rsp_equal rsp rsp') 
+                                                  *)
+    | SPrex (rsp), SPrex (rsp')
+      | SFrex (rsp), SFrex (rsp') -> rsp_equal rsp rsp'
     | _ -> false
   
   and v_equal x y = match x, y with

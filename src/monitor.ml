@@ -244,14 +244,18 @@ module BufNt = struct
   
   type ('a, 'c) t = ('a list list) * 'c list
 
-  (* TODO:: Concatenates a list of lists with lsit og lists - List.map2 *)
-  let add xs (l1, l2) = Buf2t.add xs [] (l1, l2) 
+  (* TODO:: Concatenates a list of lists with list og lists - List.map2 *)
+  let add xs ys (l1, l2) = (l1 @ xs, l2 @ ys)
   
   (* Recursively apply a function f to the heads of the nested lists to each match of regex patterns in the lists *)
-  let take f w (xs, ys) zs = 
-    let flatten_lists = List.concat in Buf2t.take f (flatten_lists xs, ys) zs
-
-  (* Compare equality between BufNt structures - similar to Buf2t, but here compares lists of lists *)
+  let rec take f w (xss, yss) zs =
+    match (xss, yss), zs with
+    | ([], _), _ | (_, []), _ | (_, _), [] -> w  (* If any list is exhausted, stop recursion *)
+    | (x :: xss_tail, y :: yss_tail), (z, d) :: zs_tail ->
+        (* Apply `f` to the heads of `xss`, `yss`, and `zs` *)
+        let new_w = List.concat_map (fun x_elem -> f x_elem y z w) xss in
+        (* Recurse with the tails *)
+        take f new_w (xss_tail, yss_tail) zs_tail
 
   (* Compares equality between two BufNt structures *)
   let equal (bufnt1: ('a, 'c) t) (bufnt2: ('a, 'c) t) eq1 eq2 = match bufnt1, bufnt2 with
@@ -1795,7 +1799,7 @@ module MState = struct
                                   (Hashtbl.fold tpts ~init:[] ~f:(fun ~key:tp ~data:ts acc ->
                                        acc @ [Printf.sprintf "(%d, %d)" tp ts]))) ^ "]\n"
 
-end
+end 
 
 let mstep mode vars ts db (ms: MState.t) is_vis =
   let (expls, mf') = meval vars ts ms.tp_cur db is_vis ms.mf in
