@@ -245,16 +245,27 @@ module BufNt = struct
   type ('a, 'c) t = ('a list list) * 'c list
 
   (* TODO:: Concatenates a list of lists with list og lists - List.map2 *)
-  let add xs ys (l1, l2) = (l1 @ xs, l2 @ ys)
+  let add (xss : 'a list list) (yss : 'c list) ((ls1, ls2) : ('a list list) * 'c list) : ('a list list) * 'c list =
+    (* Helper function to concatenate two list of lists with different lengths *)
+    let rec concat_lists l1 l2 = match l1, l2 with
+      | [], [] -> []
+      | xs :: rest, [] -> xs :: concat_lists rest []
+      | [], ys :: rest -> ys :: concat_lists [] rest
+      | xs :: rest1, ys :: rest2 -> (xs @ ys) :: concat_lists rest1 rest2
+    in
+    let new_ls1 = concat_lists ls1 xss in
+    let new_ls2 = ls2 @ yss in
+    (new_ls1, new_ls2)
   
   (* Recursively apply a function f to the heads of the nested lists to each match of regex patterns in the lists *)
   let rec take f w (xss, yss) zs =
-    match (xss, yss), zs with
-    | ([], _), _ | (_, []), _ | (_, _), [] -> w  (* If any list is exhausted, stop recursion *)
-    | (x :: xss_tail, y :: yss_tail), (z, d) :: zs_tail ->
-        (* Apply `f` to the heads of `xss`, `yss`, and `zs` *)
-        let new_w = List.concat_map (fun x_elem -> f x_elem y z w) xss in
-        (* Recurse with the tails *)
+    match (xss, yss, zs) with
+    | ([], [], []) -> w  (* Base case: all lists are empty, return the accumulator (?) *)
+    | ([], _, _) | (_, [], _) | (_, _, []) -> w  (* Stop if any list is exhausted *)
+    | (xs :: xss_tail, ys :: yss_tail, z :: zs_tail) ->
+        (* Apply function f to the heads of xss, yss, and zs with accumulator w *)
+        let new_w = f xs ys z w in
+        (* Recurse with updated accumulator and tails of each list *)
         take f new_w (xss_tail, yss_tail) zs_tail
 
   (* Compares equality between two BufNt structures *)
