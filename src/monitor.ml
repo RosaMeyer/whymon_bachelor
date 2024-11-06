@@ -253,15 +253,15 @@ module BufNt = struct
       | [], ys :: rest -> ys :: concat_lists [] rest
       | xs :: rest1, ys :: rest2 -> (xs @ ys) :: concat_lists rest1 rest2
     in
-    let new_ls1 = concat_lists ls1 xss in
-    let new_ls2 = ls2 @ yss in
+    let new_ls1 = concat_lists xss ls1 in
+    let new_ls2 = yss @ ls2 in
     (new_ls1, new_ls2)
   
   (* Recursively apply a function f to the heads of the nested lists to each match of regex patterns in the lists *)
   let rec take f w (xss, yss) zs =
     match (xss, yss, zs) with
-    | ([], [], []) -> w  (* Base case: all lists are empty, return the accumulator (?) *)
-    | ([], _, _) | (_, [], _) | (_, _, []) -> w  (* Stop if any list is exhausted *)
+    | ([], [], []) -> []  (* Base case: all lists are empty, return the empty list / do nothing *)
+    | ([], _, _) | (_, [], _) | (_, _, []) -> w  (* Stop if any list is exhausted -  TODO: should most likely be changed! *)
     | (xs :: xss_tail, ys :: yss_tail, z :: zs_tail) ->
         (* Apply function f to the heads of xss, yss, and zs with accumulator w *)
         let new_w = f xs ys z w in
@@ -1342,6 +1342,14 @@ module MFormula = struct
     | MFrex         of Interval.t * r * (Expl.t, timestamp * timepoint) BufNt.t * t list
     | MPrex         of Interval.t * r * (Expl.t, timestamp * timepoint) BufNt.t * t list
 
+  (* Helper function for handling regular expressions in var_tt *)
+  let rec var_r x = function
+    | MWild -> []  (* No variables in wildcards *)
+    | MTest _ -> []  (* No variables in test terms *)
+    | MPlus (r1, r2)
+      | MConcat (r1, r2) -> var_r x r1 @ var_r x r2
+    | MStar r -> var_r x r  (* Apply to the inner regular expression *)
+
   let rec var_tt x = function
     | MTT | MFF -> []
     | MEqConst _ -> []
@@ -1364,9 +1372,13 @@ module MFormula = struct
       | MIff (f, g, _)
       | MSince (_, f, g, _, _)
       | MUntil (_, f, g, _, _) -> var_tt x f @ var_tt x g
-    (* Added - TODO: Not correct, should be implemented for wild, test etc. - stored in predicate case, recursive calls, append or concat *)
-    | MFrex (_, _, _, fs) -> failwith "not implemented"
-    | MPrex (_, _, _, fs) -> failwith "not implemented"
+    (* Added - TODO: should be implemented for wild, test etc. - stored in predicate case, recursive calls, append or concat *)
+    | MFrex (_, r, _, fs) 
+      | MPrex (_, r, _, fs) -> 
+        (* Get variables from the regular expression 'r' using 'var_r' *)
+        let var_r_vars = var_r x r in
+        (* Use fold_left to accumulate variables from the list of formulas 'fs' *)
+        List.fold_left fs ~init:var_r_vars ~f:(fun acc f -> acc @ var_tt x f)
 
   let rec init = function
     | Formula.TT -> MTT
@@ -1389,8 +1401,8 @@ module MFormula = struct
     | Formula.Since (i, f, g) -> MSince (i, init f, init g, (([], []), []), Leaf (Since.init ()))
     | Formula.Until (i, f, g) -> MUntil (i, init f, init g, (([], []), []), Leaf (Until.init ()))
     (* QUESTION: How? *)
-    | Formula.Frex (i, r) -> failwith "not implemented" 
-    | Formula.Prex (i, r) -> failwith "not implemented"
+    | Formula.Frex (i, r) -> MFrex (i, r, ([], []), [])
+    | Formula.Prex (i, r) -> MPrex (i, r, ([], []), [])
 
   let tss_equal tss tss' =
     match List.for_all2 tss tss' ~f:Int.equal with
