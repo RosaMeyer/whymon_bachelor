@@ -64,6 +64,7 @@ val trigger: Interval.t -> t -> t -> t
 val release: Interval.t -> t -> t -> t
 
 val quant_check: string -> t -> unit
+val equal: t -> t -> bool
 
 val fv: t -> (String.t, Base.String.comparator_witness) Base.Set.t
 val check_bindings: t -> bool

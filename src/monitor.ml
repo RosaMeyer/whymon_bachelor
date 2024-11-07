@@ -244,29 +244,22 @@ module BufNt = struct
   
   type ('a, 'c) t = ('a list list) * 'c list
 
-  (* TODO:: Concatenates a list of lists with list og lists - List.map2 *)
+  (* TODO:: Concatenates a list of lists with list og lists - List.map2 use with append *)
   let add (xss : 'a list list) (yss : 'c list) ((ls1, ls2) : ('a list list) * 'c list) : ('a list list) * 'c list =
-    (* Helper function to concatenate two list of lists with different lengths *)
-    let rec concat_lists l1 l2 = match l1, l2 with
-      | [], [] -> []
-      | xs :: rest, [] -> xs :: concat_lists rest []
-      | [], ys :: rest -> ys :: concat_lists [] rest
-      | xs :: rest1, ys :: rest2 -> (xs @ ys) :: concat_lists rest1 rest2
-    in
-    let new_ls1 = concat_lists xss ls1 in
-    let new_ls2 = yss @ ls2 in
+    let new_ls1 = List.map2_exn xss ls1 (fun xs l1 -> l1 @ xs) in
+    let new_ls2 = ls2 @ yss in
     (new_ls1, new_ls2)
   
   (* Recursively apply a function f to the heads of the nested lists to each match of regex patterns in the lists *)
-  let rec take f w (xss, yss) zs =
-    match (xss, yss, zs) with
-    | ([], [], []) -> []  (* Base case: all lists are empty, return the empty list / do nothing *)
-    | ([], _, _) | (_, [], _) | (_, _, []) -> w  (* Stop if any list is exhausted -  TODO: should most likely be changed! *)
-    | (xs :: xss_tail, ys :: yss_tail, z :: zs_tail) ->
-        (* Apply function f to the heads of xss, yss, and zs with accumulator w *)
-        let new_w = f xs ys z w in
-        (* Recurse with updated accumulator and tails of each list *)
-        take f new_w (xss_tail, yss_tail) zs_tail
+  let rec take f w xss zs =
+    if List.is_empty zs || List.exists xss ~f:List.is_empty then (w, (xss, zs)) 
+    else 
+      let hs = List.map xss ~f:List.hd_exn in
+      let ts = List.map xss ~f:List.tl_exn in
+      let zh = List.hd_exn zs in
+      let zt = List.tl_exn zs in
+      let new_w = f hs zh w in
+      take f new_w ts zt  
 
   (* Compares equality between two BufNt structures *)
   let equal (bufnt1: ('a, 'c) t) (bufnt2: ('a, 'c) t) eq1 eq2 = match bufnt1, bufnt2 with
@@ -1400,9 +1393,24 @@ module MFormula = struct
     | Formula.Always (i, f) -> MAlways (i, init f, ([], []), Leaf (Always.init ()))
     | Formula.Since (i, f, g) -> MSince (i, init f, init g, (([], []), []), Leaf (Since.init ()))
     | Formula.Until (i, f, g) -> MUntil (i, init f, init g, (([], []), []), Leaf (Until.init ()))
-    (* QUESTION: How? *)
-    | Formula.Frex (i, r) -> MFrex (i, r, ([], []), [])
-    | Formula.Prex (i, r) -> MPrex (i, r, ([], []), [])
+    (* Added *)
+    | Formula.Frex (i, r) -> let r', fs = init_r [] r in MFrex (i, r', (List.init (List.length fs) (fun _ -> []), []), List.map fs ~f:init)
+    | Formula.Prex (i, r) -> let r', fs = init_r [] r in MPrex (i, r', (List.init (List.length fs) (fun _ -> []), []), List.map fs ~f:init)
+
+  (* Added *)  
+  and init_r fs = function
+    | Formula.Wild -> MWild, fs 
+    | Formula.Test f -> (match List.findi fs ~f:(fun i f' -> Formula.equal f f') with 
+                        | None -> MTest (List.length fs), fs @ [f]
+                        | Some (i, _) -> MTest i, fs)
+    | Formula.Plus (r1, r2) -> let r1', fs' = init_r fs r1 in
+                               let r2', fs'' = init_r fs' r2 in
+                               MPlus (r1', r2'), fs''                  
+    | Formula.Concat (r1, r2) -> let r1', fs' = init_r fs r1 in
+                               let r2', fs'' = init_r fs' r2 in
+                               MConcat (r1', r2'), fs''
+    | Formula.Star r -> let r', fs' = init_r fs r in 
+                        MStar r', fs'
 
   let tss_equal tss tss' =
     match List.for_all2 tss tss' ~f:Int.equal with
@@ -1504,15 +1512,15 @@ module MFormula = struct
                                   (fun x -> to_string_rec 5) g
     | MUntil (i, f, g, _, _) -> Printf.sprintf (Etc.paren l 0 "%a U%a %a") (fun x -> to_string_rec 5) f (fun x -> Interval.to_string) i
                                   (fun x -> to_string_rec 5) g
-    (* QUESTION: Does this make sense? *)
+    (* Added *)
     | MFrex (i, r, _, fs) -> Printf.sprintf (Etc.paren l 5 "FREX%a %s %a") (* TODO: change FREX to unicode symbol *)
                                (fun x -> Interval.to_string) i 
                                (regex_string r) 
-                               (fun x -> to_string_rec 5) (List.hd_exn fs)
+                               (fun x -> List.to_string ~f:(to_string_rec 5)) fs
     | MPrex (i, r, _, fs) -> Printf.sprintf (Etc.paren l 5 "PREX%a %s %a")
                                (fun x -> Interval.to_string) i
                                (regex_string r)
-                               (fun x -> to_string_rec 5) (List.hd_exn fs)
+                               (fun x -> List.to_string ~f:(to_string_rec 5)) fs
 
   let to_string = to_string_rec 0
 
@@ -1782,11 +1790,13 @@ let rec meval vars ts tp (db: Db.t) is_vis = function
      let expls'' = List.map expls' ~f:(Pdt.reduce Proof.equal) in
      let muaux_pdt'' = if is_vis then muaux_pdt' else Pdt.reduce Until.equal muaux_pdt' in
      (expls'', MUntil (i, mf1', mf2', (buf2', ntstps'), muaux_pdt'')) 
-  | MPrex (i, mr, buft, mfs) -> 
+  (* TODO: *)
+   | MPrex (i, mr, buft, mfs) -> 
      let (zss, mfs') = List.unzip (List.map mfs ~f:(fun mf -> meval vars ts tp db is_vis mf)) in
-     let buf' = 
+     let buf' = failwith "not implemented" in
+    failwith "fail"
   
-(* QUESTION: Why does this suddenly not work? *)
+(* QUESTION: Why does this suddenly not work? Because MFormula was changed? *)
 module MState = struct
 
   type t = { mf: MFormula.t
@@ -1841,6 +1851,8 @@ let mstep mode vars ts db (ms: MState.t) is_vis =
 
 let exec mode measure f inc =
   let vars = Set.elements (Formula.fv f) in
+  let _ = Printf.printf "vars: %s\n" (String.concat ~sep:", " vars) in
+  let _ = flush_all () in
   let out tstp_expls (ms: MState.t) =
     match mode with
     | Out.Plain.UNVERIFIED -> Out.Plain.expls tstp_expls None None None mode
@@ -1863,6 +1875,8 @@ let exec mode measure f inc =
                       out tstp_expls ms;
                       step (Some(pb)) ms in
   let mf = init f in
+  let _ = Printf.printf "initial state %s" (to_string mf) in
+  let _ = flush_all () in
   let ms = MState.init mf in
   step None ms
 

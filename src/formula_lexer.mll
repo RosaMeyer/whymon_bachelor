@@ -35,7 +35,7 @@ rule token = parse
   | blank                                         { token lexbuf }
   | '#'                                           { debug "skip_line"; skip_line lexbuf }
   | ','                                           { debug "COMMA"; COMMA }
-  | '.'                                           { debug "DOT"; DOT }
+  | '.'                                           { debug "DOT"; DOT } (* WILD as well *)
   | "false" | "⊥"                                 { debug "FALSE"; FALSE }
   | "true" | "⊤"                                  { debug "TRUE"; TRUE }
   | "="                                           { debug "EQCONST"; EQCONST }
@@ -63,6 +63,7 @@ rule token = parse
   | "FREX"                                        { debug "FREX"; FREX } (* TODO: Monpoly steal unicode symbol*)
   | "PREX"                                        { debug "PREX"; PREX }
   | "PLUS"                                        { debug "PLUS"; PLUS }
+  | "CONCAT"                                      { debug "CONCAT"; CONCAT }
   | "?"                                           { debug "QM"; QM }
   | "*"                                           { debug "STAR"; STAR }
   | digits as d                                   { debug ("INT " ^ d); INT (Base.Int.of_string d) }
