@@ -123,28 +123,28 @@ e:
 | STR LPA terms RPA                    { debug "STR LPA terms RPA"; predicate $1 $3 }
 
 (* TODO: FIX degub strings *)
-| FREX INTERVAL fregex                 { debug "f(frexd)"; Frex ($2,$3) }
-| FREX fregex                          { debug "f(frexdf)"; Frex (Interval.full,$2) }
-| PREX INTERVAL pregex                 { debug "f(prexd)"; Prex ($2,$3) }
-| PREX pregex                          { debug "f(prexdf)"; Prex (Interval.full,$2) }
+| FREX INTERVAL fregex                 { debug "FREX INTERVAL fregex"; Frex ($2,$3) }
+| FREX fregex                          { debug "FREX fregex"; Frex (Interval.full,$2) }
+| PREX INTERVAL pregex                 { debug "PREX INTERVAL pregex"; Prex ($2,$3) }
+| PREX pregex                          { debug "PREX pregex"; Prex (Interval.full,$2) }
 
 fregex:
-| LPA fregex RPA                       { debug "r()"; $2 } 
-| DOT                                  { debug "f(wild)"; Wild }
-(*| formula                              { debug "f(fbase)"; Concat(Test ($1),Wild)} %prec BASE*) 
-| QM formula QM                           { debug "f(test)"; Test ($2)}
-| fregex CONCAT fregex                 { debug "f(concat)"; Concat ($1,$3)} %prec CONCAT
-| fregex PLUS fregex                   { debug "f(plus)"; Plus ($1, $3)} %prec PLUS
-| fregex STAR                          { debug "f(star)"; Star ($1)}
+| LPA fregex RPA                       { debug "LPA fregex RPA"; $2 }
+| DOT                                  { debug "DOT"; Wild }
+(*| formula                              { debug "f(fbase)"; Concat(Test ($1),Wild)} %prec BASE*)
+| QM e QM                              { debug "QM e QM"; Test ($2)}
+| fregex CONCAT fregex                 { debug "fregex CONCAT fregex"; Concat ($1,$3)} %prec CONCAT
+| fregex PLUS fregex                   { debug "fregex PLUS fregex"; Plus ($1, $3)} %prec PLUS
+| fregex STAR                          { debug "fregex STAR"; Star ($1)}
 
 pregex:
-| LPA pregex RPA                       { debug "r()"; $2 } 
-| DOT                                  { debug "f(wild)"; Wild }
+| LPA pregex RPA                       { debug "LPA pregex RPA"; $2 }
+| DOT                                  { debug "DOT"; Wild }
 (*| formula                              { debug "f(pbase)"; Concat(Wild,Test ($1))} %prec BASE*)
-| QM formula QM                          { debug "f(test)"; Test ($2)}
-| pregex CONCAT pregex                 { debug "f(concat)"; Concat ($1,$3)} %prec CONCAT
-| pregex PLUS pregex                   { debug "f(plus)"; Plus ($1, $3)} %prec PLUS
-| pregex STAR                          { debug "f(star)"; Star ($1)}
+| QM e QM                              { debug "QM e QM"; Test ($2)}
+| pregex CONCAT pregex                 { debug "pregex CONCAT pregex"; Concat ($1,$3)} %prec CONCAT
+| pregex PLUS pregex                   { debug "pregex PLUS pregex"; Plus ($1, $3)} %prec PLUS
+| pregex STAR                          { debug "pregex STAR"; Star ($1)}
 
 term:
 | const                                { debug "CONST"; $1 }
