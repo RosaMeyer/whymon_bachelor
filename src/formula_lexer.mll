@@ -60,8 +60,8 @@ rule token = parse
                                                   { debug "INTERVAL"; INTERVAL (make_interval lexbuf l i j r) }
   | "("                                           { debug "LPA"; LPA }
   | ")"                                           { debug "RPA"; RPA }
-  | "FREX"                                        { debug "FREX"; FREX } (* TODO: Monpoly steal unicode symbol*)
-  | "PREX"                                        { debug "PREX"; PREX }
+  | "FREX" | "|>" | "▷"                           { debug "FREX"; FREX }
+  | "PREX" | "<|" | "◁"                           { debug "PREX"; PREX }
   | "PLUS"                                        { debug "PLUS"; PLUS }
   | "CONCAT"                                      { debug "CONCAT"; CONCAT }
   | "?"                                           { debug "QM"; QM }
