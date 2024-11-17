@@ -1508,14 +1508,19 @@ module MFormula = struct
     | MUntil (i, f, g, _, _) -> Printf.sprintf (Etc.paren l 0 "%a U%a %a") (fun x -> to_string_rec 5) f (fun x -> Interval.to_string) i
                                   (fun x -> to_string_rec 5) g
     (* Added *)
-    | MFrex (i, r, _, fs) -> Printf.sprintf (Etc.paren l 5 "FREX%a %s %s") (* TODO: change FREX to unicode symbol *)
-                               (fun x -> Interval.to_string) i 
+    | MFrex (i, r, _, fs) -> Printf.sprintf (Etc.paren l 5 "FREX%s %s %s") (* TODO: change FREX to unicode symbol *)
+                               (* (fun x -> Interval.to_string) i  *)
+                               (i |> Interval.to_string)
                                (regex_string r) 
-                               (List.to_string ~f:(to_string_rec 5) fs) 
-    | MPrex (i, r, _, fs, _) -> Printf.sprintf (Etc.paren l 5 "PREX%a %s %s") 
-                               (fun x -> Interval.to_string) i
+                               (* (List.to_string ~f:(to_string_rec 5) fs)  *)
+                               (fs |> (List.map ~f:(to_string_rec 5)) |> (String.concat ~sep:" "))
+    | MPrex (i, r, _, fs, _) -> Printf.sprintf (Etc.paren l 5 "PREX%s %s %s") 
+                               (* (fun x -> Interval.to_string) i *)
+                               (i |> Interval.to_string)
                                (regex_string r)
-                               (List.to_string ~f:(to_string_rec 5) fs)
+                               (* (List.to_string ~f:(to_string_rec 5) fs) *)
+                               (fs |> (List.map ~f:(to_string_rec 5)) |> (String.concat ~sep:" "))
+
 
   let to_string = to_string_rec 0
 
