@@ -163,6 +163,7 @@ module Pdt : sig
   val apply1: string list -> ('a -> 'b) -> 'a t -> 'b t
   val apply2: string list -> ('a -> 'b -> 'c) -> 'a t -> 'b t -> 'c t
   val apply3: string list -> ('a -> 'b -> 'c -> 'd) -> 'a t -> 'b t -> 'c t -> 'd t
+  val applyN: string list -> ('a list -> 'b) -> 'a t list -> 'b t 
   val split_prod: ('a * 'b) t -> 'a t * 'b t
   val split_list: 'a list t -> 'a t list
   val hide: string list -> ('a -> 'b) -> ('a Part.t -> 'b) -> 'a t -> 'b t

@@ -131,8 +131,8 @@ e:
 fregex:
 | LPA fregex RPA                       { debug "LPA fregex RPA"; $2 }
 | DOT                                  { debug "DOT"; Wild }
-(*| formula                              { debug "f(fbase)"; Concat(Test ($1),Wild)} %prec BASE*)
-| QM e QM                              { debug "QM e QM"; Test ($2)}
+| e                                    { debug "f(fbase)"; Concat(Test ($1),Wild)} %prec BASE
+| e QM                                 { debug "QM e QM"; Test ($1)}
 | fregex CONCAT fregex                 { debug "fregex CONCAT fregex"; Concat ($1,$3)} %prec CONCAT
 | fregex PLUS fregex                   { debug "fregex PLUS fregex"; Plus ($1, $3)} %prec PLUS
 | fregex STAR                          { debug "fregex STAR"; Star ($1)}
@@ -140,8 +140,8 @@ fregex:
 pregex:
 | LPA pregex RPA                       { debug "LPA pregex RPA"; $2 }
 | DOT                                  { debug "DOT"; Wild }
-(*| formula                              { debug "f(pbase)"; Concat(Wild,Test ($1))} %prec BASE*)
-| QM e QM                              { debug "QM e QM"; Test ($2)}
+| e                                    { debug "f(pbase)"; Concat(Wild,Test ($1))} %prec BASE
+| e QM                                 { debug "QM e QM"; Test ($1)}
 | pregex CONCAT pregex                 { debug "pregex CONCAT pregex"; Concat ($1,$3)} %prec CONCAT
 | pregex PLUS pregex                   { debug "pregex PLUS pregex"; Plus ($1, $3)} %prec PLUS
 | pregex STAR                          { debug "pregex STAR"; Star ($1)}

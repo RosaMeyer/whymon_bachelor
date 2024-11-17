@@ -12,11 +12,6 @@ open Etc
 open Expl
 open Pred
 
-(* QUESTION: Ask Leonardo. Is this necessary? I get an error when it runs and its not in the original monitor.ml file, however I didn' add it... 
-#require "str";;
-open Str
-*)
-
 let minp_list = Proof.Size.minp_list
 let minp_bool = Proof.Size.minp_bool
 let minp = Proof.Size.minp
@@ -251,7 +246,7 @@ module BufNt = struct
     (new_ls1, new_ls2)
   
   (* Recursively apply a function f to the heads of the nested lists to each match of regex patterns in the lists *)
-  let rec take f w xss zs =
+  let rec take f w (xss, zs) =
     if List.is_empty zs || List.exists xss ~f:List.is_empty then (w, (xss, zs)) 
     else 
       let hs = List.map xss ~f:List.hd_exn in
@@ -259,7 +254,7 @@ module BufNt = struct
       let zh = List.hd_exn zs in
       let zt = List.tl_exn zs in
       let new_w = f hs zh w in
-      take f new_w ts zt  
+      take f new_w (ts, zt)  
 
   (* Compares equality between two BufNt structures *)
   let equal (bufnt1: ('a, 'c) t) (bufnt2: ('a, 'c) t) eq1 eq2 = match bufnt1, bufnt2 with
@@ -1259,12 +1254,12 @@ module Until = struct
 end
 
 
-(* Added - TODO: implement *)
+(* Added - QUESTION: implement how? *)
 module Frex = struct
 
 end
 
-(* Added - TDOD: implement *)
+(* Added - TDOD: implement - since module - update function -check lower bound of interval - recursive pattern macth on ts (time stamps) - assume same length *)
 module Prex = struct
 
 end
@@ -1333,7 +1328,7 @@ module MFormula = struct
     | MUntil        of Interval.t * t * t * (Expl.t, Expl.t, timestamp * timepoint) Buf2t.t * Until.t Expl.Pdt.t
     (* Added *)
     | MFrex         of Interval.t * r * (Expl.t, timestamp * timepoint) BufNt.t * t list
-    | MPrex         of Interval.t * r * (Expl.t, timestamp * timepoint) BufNt.t * t list
+    | MPrex         of Interval.t * r * (Expl.t, timestamp * timepoint) BufNt.t * t list * (Expl.t, timestamp * timepoint) BufNt.t
 
   (* Helper function for handling regular expressions in var_tt *)
   let rec var_r x = function
@@ -1367,7 +1362,7 @@ module MFormula = struct
       | MUntil (_, f, g, _, _) -> var_tt x f @ var_tt x g
     (* Added - TODO: should be implemented for wild, test etc. - stored in predicate case, recursive calls, append or concat *)
     | MFrex (_, r, _, fs) 
-      | MPrex (_, r, _, fs) -> 
+      | MPrex (_, r, _, fs, _) -> 
         (* Get variables from the regular expression 'r' using 'var_r' *)
         let var_r_vars = var_r x r in
         (* Use fold_left to accumulate variables from the list of formulas 'fs' *)
@@ -1395,7 +1390,7 @@ module MFormula = struct
     | Formula.Until (i, f, g) -> MUntil (i, init f, init g, (([], []), []), Leaf (Until.init ()))
     (* Added *)
     | Formula.Frex (i, r) -> let r', fs = init_r [] r in MFrex (i, r', (List.init (List.length fs) (fun _ -> []), []), List.map fs ~f:init)
-    | Formula.Prex (i, r) -> let r', fs = init_r [] r in MPrex (i, r', (List.init (List.length fs) (fun _ -> []), []), List.map fs ~f:init)
+    | Formula.Prex (i, r) -> let r', fs = init_r [] r in MPrex (i, r', (List.init (List.length fs) (fun _ -> []), []), List.map fs ~f:init, (List.init (List.length fs) (fun _ -> []), []))
 
   (* Added *)  
   and init_r fs = function
@@ -1478,9 +1473,9 @@ module MFormula = struct
        Interval.equal i i' && Buf2t.equal buf2t buf2t' Expl.equal Expl.equal tstp_equal &&
          equal mf1 mf1' && equal mf2 mf2' && (Pdt.equal Until.equal) muaux_pdt muaux_pdt'
     (* Added  *)
-    | MFrex (i, r, buft, fs), MFrex (i', r', buft', fs') 
-      | MPrex (i, r, buft, fs), MPrex (i', r', buft', fs') -> 
-         Interval.equal i i' && equal_regex r r' && BufNt.equal buft buft' Expl.equal tstp_equal && List.for_all2_exn fs fs' ~f:equal    
+    | MFrex (i, r, buft, fs), MFrex (i', r', buft', fs') -> Interval.equal i i' && equal_regex r r' && BufNt.equal buft buft' Expl.equal tstp_equal && List.for_all2_exn fs fs' ~f:equal
+    | MPrex (i, r, buft, fs, es), MPrex (i', r', buft', fs', es') -> 
+      Interval.equal i i' && equal_regex r r' && BufNt.equal buft buft' Expl.equal tstp_equal && List.for_all2_exn fs fs' ~f:equal && BufNt.equal es es' Expl.equal tstp_equal 
 
   (* Added for to_string_rec*)  
   let rec regex_string = function
@@ -1513,14 +1508,14 @@ module MFormula = struct
     | MUntil (i, f, g, _, _) -> Printf.sprintf (Etc.paren l 0 "%a U%a %a") (fun x -> to_string_rec 5) f (fun x -> Interval.to_string) i
                                   (fun x -> to_string_rec 5) g
     (* Added *)
-    | MFrex (i, r, _, fs) -> Printf.sprintf (Etc.paren l 5 "FREX%a %s %a") (* TODO: change FREX to unicode symbol *)
+    | MFrex (i, r, _, fs) -> Printf.sprintf (Etc.paren l 5 "FREX%a %s %s") (* TODO: change FREX to unicode symbol *)
                                (fun x -> Interval.to_string) i 
                                (regex_string r) 
-                               (fun x -> List.to_string ~f:(to_string_rec 5)) fs
-    | MPrex (i, r, _, fs) -> Printf.sprintf (Etc.paren l 5 "PREX%a %s %a")
+                               (List.to_string ~f:(to_string_rec 5) fs) 
+    | MPrex (i, r, _, fs, _) -> Printf.sprintf (Etc.paren l 5 "PREX%a %s %s") 
                                (fun x -> Interval.to_string) i
                                (regex_string r)
-                               (fun x -> List.to_string ~f:(to_string_rec 5)) fs
+                               (List.to_string ~f:(to_string_rec 5) fs)
 
   let to_string = to_string_rec 0
 
@@ -1791,12 +1786,14 @@ let rec meval vars ts tp (db: Db.t) is_vis = function
      let muaux_pdt'' = if is_vis then muaux_pdt' else Pdt.reduce Until.equal muaux_pdt' in
      (expls'', MUntil (i, mf1', mf2', (buf2', ntstps'), muaux_pdt'')) 
   (* TODO: *)
-   | MPrex (i, mr, buft, mfs) -> 
+   | MPrex (i, mr, buft, mfs, es) -> 
      let (zss, mfs') = List.unzip (List.map mfs ~f:(fun mf -> meval vars ts tp db is_vis mf)) in
-     let buf' = failwith "not implemented" in
-    failwith "fail"
+     let buf' = BufNt.add zss [(ts, tp)] buft in 
+     let ((mr', zs, es'), buf'') = BufNt.take (fun expls (ts, tp) (mr, zs, es) -> (mr, zs, es)) (mr, [], es) buf' in 
+     (zs, MPrex (i, mr', buf'', mfs', es'))
   
-(* QUESTION: Why does this suddenly not work? Because MFormula was changed? *)
+(* TODO: implement meval_regex! *)
+
 module MState = struct
 
   type t = { mf: MFormula.t
