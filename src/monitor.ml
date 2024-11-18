@@ -1285,9 +1285,9 @@ module Prex = struct
       else minp_list (List.filter_map ps ~f:(fun p -> if Proof.isRV p then None 
         else Some (Proof.S (Proof.SPrex (Proof.unRS p)))))
         ) pdts in
-    failwith "fail"
+    failwith "fail" 
 
-    (* let p : acces es *)
+    (* let p := acces es (explanations) *)
 end
 
 
