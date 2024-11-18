@@ -223,7 +223,9 @@ predicate logic, and more advanced features like handling regular expressions *)
     | VConcat of rvp Fdeque.t
     | VStar of rvp Fdeque.t
 
-  type t = S of sp | V of vp
+  type t = S of sp | V of vp 
+
+  type rt = RS of rsp | RV of rvp
 
   let rec s_equal x y = match x, y with
     | STT tp, STT tp' -> Int.equal tp tp'
@@ -361,6 +363,14 @@ predicate logic, and more advanced features like handling regular expressions *)
     | S sp -> sp
     | _ -> raise (Invalid_argument "unS is not defined for V proofs")
 
+  let unRV = function
+    | RV vp -> vp
+    | _ -> raise (Invalid_argument "unRV is not defined for RS proofs")
+
+  let unRS = function
+  | RS sp -> sp
+  | _ -> raise (Invalid_argument "unRS is not defined for RV proofs")
+
   let unV = function
     | V vp -> vp
     | _ -> raise (Invalid_argument "unV is not defined for S proofs")
@@ -372,6 +382,14 @@ predicate logic, and more advanced features like handling regular expressions *)
   let isV = function
     | S _ -> false
     | V _ -> true
+
+  let isRS = function
+  | RS _ -> true
+  | RV _ -> false
+
+  let isRV = function
+    | RS _ -> false
+    | RV _ -> true
 
   let s_append sp sp1 = match sp with
     | SSince (sp2, sp1s) -> SSince (sp2, Fdeque.enqueue_back sp1s sp1)

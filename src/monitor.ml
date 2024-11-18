@@ -989,7 +989,7 @@ module Until = struct
                | Some(ts, _) -> ts)
     | Some(ts, _) -> ts
 
-  (* TODO: Rewrite this function with map instead of fold *)
+  (* TODO : Rewrite this function with map instead of fold *)
   let step_sdrop_tp tp s_alphas_beta =
     Fdeque.fold s_alphas_beta ~init:Fdeque.empty
       ~f:(fun s_alphas_beta' (ts, ssp) ->
@@ -1259,9 +1259,35 @@ module Frex = struct
 
 end
 
-(* Added - TDOD: implement - since module - update function -check lower bound of interval - recursive pattern macth on ts (time stamps) - assume same length *)
+(* Added - TODO: - since module - update function - check lower bound of interval - recursive pattern macth on ts (time stamps) - assume same length - ts-ts1 is not in i: drop *)
 module Prex = struct
 
+  type ('a, 'c) t = ('a list list) * 'c list (* Same type as BufNt *)
+
+  (* Remove elements of the expls list that correspond to timestamps in ts that fall outside the specified interval i - ts is tech a pari of (ts, tp) *)
+  let rec clean i t (expls, ts) =
+    match (expls, ts) with
+    | ([], _) | (_, []) -> ([], []) (* Base case: one of the lists is empty *)
+    | (expl :: expls_tail, (t', _) :: ts_tail) ->
+        (* Extract the lower and upper bounds of the interval *)
+        if Interval.below (t - t') i then
+          (* Keep the current element, recurse on the rest *)
+          (expls, ts)
+        else
+          (* Skip the current element *)
+          clean i t (expls_tail, ts_tail)
+    
+  let eval vars i ts tp mr (es, tstps) =
+    let tstps_in = List.take_while tstps (fun (ts', _) -> Interval.mem (ts - ts') i) in 
+    let pdts = List.map tstps_in ~f:(fun (_, tp') -> eval_r tp' tp' tp mr es) in 
+    let z = Pdt.applyN vars (fun ps -> if List.for_all ps ~f:(fun p -> Proof.isRV p) 
+      then Proof.V (Proof.VPrex (tp, Fdeque.of_list (List.map ps ~f:Proof.unRV))) 
+      else minp_list (List.filter_map ps ~f:(fun p -> if Proof.isRV p then None 
+        else Some (Proof.S (Proof.SPrex (Proof.unRS p)))))
+        ) pdts in
+    failwith "fail"
+
+    (* let p : acces es *)
 end
 
 
@@ -1513,13 +1539,13 @@ module MFormula = struct
                                (i |> Interval.to_string)
                                (regex_string r) 
                                (* (List.to_string ~f:(to_string_rec 5) fs)  *)
-                               (fs |> (List.map ~f:(to_string_rec 5)) |> (String.concat ~sep:" "))
+                               (fs |> (List.map ~f:(to_string_rec 5)) |> (String.concat ~sep:","))
     | MPrex (i, r, _, fs, _) -> Printf.sprintf (Etc.paren l 5 "◁%s %s %s") 
                                (* (fun x -> Interval.to_string) i *)
                                (i |> Interval.to_string)
                                (regex_string r)
                                (* (List.to_string ~f:(to_string_rec 5) fs) *)
-                               (fs |> (List.map ~f:(to_string_rec 5)) |> (String.concat ~sep:" "))
+                               (fs |> (List.map ~f:(to_string_rec 5)) |> (String.concat ~sep:","))
 
 
   let to_string = to_string_rec 0
@@ -1794,7 +1820,10 @@ let rec meval vars ts tp (db: Db.t) is_vis = function
    | MPrex (i, mr, buft, mfs, es) -> 
      let (zss, mfs') = List.unzip (List.map mfs ~f:(fun mf -> meval vars ts tp db is_vis mf)) in
      let buf' = BufNt.add zss [(ts, tp)] buft in 
-     let ((mr', zs, es'), buf'') = BufNt.take (fun expls (ts, tp) (mr, zs, es) -> (mr, zs, es)) (mr, [], es) buf' in 
+     let ((mr', zs, es'), buf'') = BufNt.take (fun expls (ts, tp) (mr, zs, es) -> 
+                                   let es' = Prex.clean i ts (BufNt.add [expls] [(ts, tp)] es) in 
+                                   let (mr', z) = Prex.eval i ts tp mr es' in 
+                                   (mr', zs@[z], es')) (mr, [], es) buf' in 
      (zs, MPrex (i, mr', buf'', mfs', es'))
   
 (* TODO: implement meval_regex! *)

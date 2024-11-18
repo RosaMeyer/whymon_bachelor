@@ -117,6 +117,8 @@ module Proof : sig
 
   type t = S of sp | V of vp
 
+  type rt = RS of rsp | RV of rvp
+
   val s_equal: sp -> sp -> bool
   val v_equal: vp -> vp -> bool
   val equal: t -> t -> bool
@@ -125,8 +127,12 @@ module Proof : sig
 
   val unS: t -> sp
   val unV: t -> vp
+  val unRS: rt -> rsp
+  val unRV: rt -> rvp
   val isS: t -> bool
   val isV: t -> bool
+  val isRS: rt -> bool
+  val isRV: rt -> bool
 
   val s_append: sp -> sp -> sp
   val v_append: vp -> vp -> vp
