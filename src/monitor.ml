@@ -13,6 +13,7 @@ open Expl
 open Pred
 
 let minp_list = Proof.Size.minp_list
+let minrp_list = Proof.Size.minrp_list
 let minp_bool = Proof.Size.minp_bool
 let minp = Proof.Size.minp
 
@@ -1253,6 +1254,15 @@ module Until = struct
 
 end
 
+module MRegex = struct
+  (* Added *)
+  type r = 
+    | MWild 
+    | MTest of int
+    | MPlus of r * r
+    | MConcat of r * r
+    | MStar of r
+end
 
 (* Added - QUESTION: implement how? *)
 module Frex = struct
@@ -1264,7 +1274,7 @@ module Prex = struct
 
   type ('a, 'c) t = ('a list list) * 'c list (* Same type as BufNt *)
 
-  (* Remove elements of the expls list that correspond to timestamps in ts that fall outside the specified interval i - ts is tech a pari of (ts, tp) *)
+  (* Remove elements of the expls list that correspond to timestamps in ts that fall outside the specified interval i - ts is tech a part of (ts, tp) *)
   let rec clean i t (expls, ts) =
     match (expls, ts) with
     | ([], _) | (_, []) -> ([], []) (* Base case: one of the lists is empty *)
@@ -1279,15 +1289,96 @@ module Prex = struct
     
   let eval vars i ts tp mr (es, tstps) =
     let tstps_in = List.take_while tstps (fun (ts', _) -> Interval.mem (ts - ts') i) in 
-    let pdts = List.map tstps_in ~f:(fun (_, tp') -> eval_r tp' tp' tp mr es) in 
+    let pdts = List.map tstps_in ~f:(fun (_, tp') -> Pdt.applyN vars (eval_r tp' tp' tp mr) es) in 
     let z = Pdt.applyN vars (fun ps -> if List.for_all ps ~f:(fun p -> Proof.isRV p) 
       then Proof.V (Proof.VPrex (tp, Fdeque.of_list (List.map ps ~f:Proof.unRV))) 
-      else minp_list (List.filter_map ps ~f:(fun p -> if Proof.isRV p then None 
-        else Some (Proof.S (Proof.SPrex (Proof.unRS p)))))
-        ) pdts in
-    failwith "fail" 
+      else minp_list (List.filter_map ps ~f:(fun p -> if Proof.isRV p 
+        then None 
+        else Some (Proof.S (Proof.SPrex (Proof.unRS p)))))) pdts in
+    z (* failwith "fail"  *)
 
+  let rec eval_r tp i j mr es = 
+      
+    (* Handle the "C(i, j, *)" case *)
+    let eval_wild i j = 
+      if j = i + 1 then
+        Proof.RS (Proof.SWild i)
+      else 
+        Proof.RV (Proof.VWild (i, j))
+      in
+        
     (* let p := acces es (explanations) *)
+    (* Handle the "C(i, j, φ?)" case *)
+    let eval_question i j tp =
+      let p = List.nth_exn es (i - tp) in
+      match p with
+      | Proof.S p -> Proof.RS (Proof.STest p)
+      | Proof.V p -> Proof.RV (Proof.VTest p)
+    in
+
+    (* doSum function - helper *)
+    let do_sum p1 p2 =
+      match p1, p2 with
+      | Proof.RS p1, Proof.RS p2 -> minrp_list [Proof.RS (Proof.SPlusL p1); Proof.RS (Proof.SPlusR p2)]
+      | Proof.RS p1, Proof.RV p2 -> Proof.RS (Proof.SPlusL p1)
+      | Proof.RV p1, Proof.RS p2 -> Proof.RS (Proof.SPlusR p2)
+      | Proof.RV p1, Proof.RV p2 -> Proof.RV (Proof.VPlus (p1, p2))
+    in 
+
+    (* Handle "C(i, j, r + s)" *)
+    let eval_plus i j r1 r2 =
+      let p1 = eval_r tp i j mr es in
+      let p2 = eval_r tp i j mr es in
+      do_sum p1 p2
+    in
+
+    (* Handle "C(i, j, r · s)" *)
+    let eval_concat i j r s =
+      let ps0 = List.init (j - i) ~f:(fun k -> eval_r tp i (i + k) r es) in
+      let ps1 = List.init (j - i) ~f:(fun k -> eval_r tp (i + k) j s es) in
+      if List.exists (List.range 0 (j - i)) ~f:(fun k -> Proof.isRS (List.nth_exn ps0 k) && Proof.isRS (List.nth_exn ps1 k)) then
+        minrp_list (List.filter_map (List.range 0 (j - i)) ~f:(fun k ->
+          let ps0_k = List.nth_exn ps0 k in
+          let ps1_k = List.nth_exn ps1 k in
+          if Proof.isRS ps0_k && Proof.isRS ps1_k then
+            Some (Proof.RS (Proof.SConcat (Proof.unRS ps0_k, Proof.unRS ps1_k)))
+          else
+            None))
+      else
+        let qs = List.map (List.range 0 (j - i)) ~f:(fun k ->
+          let ps0_k = List.nth_exn ps0 k in
+          let ps1_k = List.nth_exn ps1 k in
+          Proof.unRV (minrp_list (List.filter [ps0_k; ps1_k] ~f:Proof.isRV))) in
+        Proof.RV (Proof.VConcat (Fdeque.of_list qs))
+    in 
+
+    (* impelement do_star function for Kleene star case *)
+
+    let do_star i j r =
+      (* Define E+ set: edges (k, l) where the pattern matches *)
+      let e_plus = 
+      let e_minus =
+      let v =
+                                                                                 
+
+    (* Handle "C(i, j, r*)" *)
+    let eval_star i j r =
+      if i = j then
+        [Proof.SStarEps i] 
+      else
+        let do_star' = do_star i j tp mr es in
+        do_star'
+    in
+
+    (* Main logic to determine which case to handle based on input *)
+    match mr with
+    | MRegex.MWild _ -> eval_wild i j
+    | MRegex.MTest phi -> eval_question i j phi
+    | MRegex.MPlus (r, s) -> eval_plus i j r s
+    | MRegex.MConcat (r, s) -> eval_concat i j r s
+    | MRegex.MStar r -> eval_star i j r
+    | _ -> failwith "Unhandled proof type"
+
 end
 
 
@@ -1323,14 +1414,6 @@ module MFormula = struct
 
   type tss = timestamp list
   type tstps = (timestamp * timepoint) list
-
-  (* Added *)
-  type r = 
-    | MWild 
-    | MTest of int
-    | MPlus of r * r
-    | MConcat of r * r
-    | MStar of r
 
   type t =
     | MTT

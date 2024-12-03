@@ -931,17 +931,27 @@ predicate logic, and more advanced features like handling regular expressions *)
       | VConcat vrps
         | VStar vrps -> 1 + sum vr vrps (* List of regex proofs *)
 
-    let p = function
+    let size_p = function
       | S s_p -> s s_p
       | V v_p -> v v_p
 
-    let minp_bool = cmp p
+    let size_rp = function
+      | RS s_rp -> sr s_rp
+      | RV v_rp -> vr v_rp
 
-    let minp x y = if p x <= p y then x else y
+    let minp_bool = cmp size_p
+
+    let minp x y = if size_p x <= size_p y then x else y
+    
+    let minrp x y = if size_rp x <= size_rp y then x else y
 
     let minp_list = function
       | [] -> raise (Invalid_argument "function not defined for empty lists")
       | x :: xs -> List.fold_left xs ~init:x ~f:minp
+    
+    let minrp_list = function
+      | [] -> raise (Invalid_argument "function not defined for empty lists")
+      | x :: xs -> List.fold_left xs ~init:x ~f:minrp
 
   end
 
