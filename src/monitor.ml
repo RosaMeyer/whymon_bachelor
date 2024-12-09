@@ -1355,24 +1355,24 @@ module Prex = struct
     (* Helper for Kleene star case below *)                                                            
     let do_star i j r =
       (* Helper function to generate all pairs (k, l) such that i <= k < l <= j *)
-      let generate_pairs i j = List.concat (List.map (fun k -> List.map (fun l -> (k, l)) 
-                                                     (List.init (j - k) (fun x -> k + x + 1))) 
-                                                     (List.init (j - i + 1) (fun x -> i + x))) in
+      let generate_pairs i j = List.concat (
+        List.map 
+          (List.init (j - i + 1) (fun x -> i + x))  
+          (fun k -> List.map (List.init (j - k) (fun x -> k + x + 1)) (fun l -> (k, l)))) in
     
-      (* Define E+ and E- *)
+      (* Define E+ and E-: && i <= k && k < l && l <= j *)
       let e_plus =
-        List.filter (fun (k, l) -> Proof.RS (eval_r tp k l r es)) (generate_pairs i j) in
+        List.filter (generate_pairs i j) (fun (k, l) -> Proof.isRS (eval_r tp k l r es)) in
       let e_minus =
-        List.filter (fun (k, l) -> Proof.RV (eval_r tp k l r es)) (generate_pairs i j) in
+        List.filter (generate_pairs i j) (fun (k, l) -> Proof.isRV (eval_r tp k l r es)) in
     
       (* Define the set of vertices V *)
       let v = List.init (j - i + 1) (fun x -> i + x) in
     
       (* Define the weight function w for E+ - TODO: change to the wieghts on the papar, "f" is not correct!! *)
-      let w (k, l) = if List.exists e_plus (fun (k', l') -> k = k' && l = l') then f(eval_r tp k l r es) in
+      let w k l = if List.exists e_plus (fun (k', l') -> k = k' && l = l') then f(eval_r tp k l r es) in
     
-      (* Construct the weighted graph G' *)
-      (* Initialize an empty graph *)
+      (* Construct the weighted graph G' - initialize an empty graph*)
       let graph = G.empty in
       
       (* Define the set of vertices V: all integers from i to j *)
@@ -1388,30 +1388,35 @@ module Prex = struct
       let g' = List.iter w (fun (k, l, weight) -> G.add_edge_e graph (k, l, weight)) in
     
       (* Check if i and j are connected in G' *)
-      if reachable g_weighted i j then
+      if Graph.Path.exists g' i j then
         (* If reachable, find the shortest path *)
-        let sp = shortestPath g_weighted i j in
+        let sp = Graph.Path.shortest_path w g' i j in
         let ps =
           List.sort_uniq compare
-            (List.map (fun (k, l) -> O k l r) sp) in
-        [Star ps]
+            (List.map sp (fun (k, l) -> eval_r tp k l r es))
+        in
+        Proof.RS (Proof.SStar ps)
       else
         (* If not reachable, proceed with min-cut and max-flow *)
-        let c (k, l) =
-          if List.mem (k, l) e_minus then f(O k l r) else infinity in
-        let g_combined = (v, e_plus @ e_minus, c) in
+        (* QUESTION: f(O k l r)? *)
+        let c k l =
+          if (List.mem k e_minus && List.mem l e_minus) then f (O k l r) else infinity
+        in
+        let g_combined = (vertices, e_plus @ e_minus, c) in
         let n = (g_combined, c, i, j) in
+        (* Ford *)
         let f_max = maxFlow n in
         let (s, t) = minCut (g_combined, f_max) in
         let cut = List.sort compare (List.filter (fun x -> List.mem x t) s) in
-        let n = List.length cut in
+        let n' = List.length cut in
         let ps =
           List.map
             (fun k ->
               let (fst_k, snd_k) = List.nth cut k in
               O fst_k snd_k r)
-            (List.init n (fun x -> x)) in
-        [Star ps]
+            (List.init n' (fun x -> x))
+        in
+        Proof.RV (Proof.SStar ps)
     in
 
     (* Handle "C(i, j, r*)" *)
