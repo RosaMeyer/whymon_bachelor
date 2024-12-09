@@ -11,6 +11,7 @@ open Core
 open Etc
 open Expl
 open Pred
+open Graph
 
 let minp_list = Proof.Size.minp_list
 let minrp_list = Proof.Size.minrp_list
@@ -1264,6 +1265,15 @@ module MRegex = struct
     | MStar of r
 end
 
+(* Added *)
+module G = Graph.Persistent.Digraph.Concrete (struct
+  type t = int
+  let compare = compare
+  let hash = Hashtbl.hash
+  let equal = (=)
+end)
+
+
 (* Added - QUESTION: implement how? *)
 module Frex = struct
 
@@ -1286,16 +1296,6 @@ module Prex = struct
         else
           (* Skip the current element *)
           clean i t (expls_tail, ts_tail)
-    
-  let eval vars i ts tp mr (es, tstps) =
-    let tstps_in = List.take_while tstps (fun (ts', _) -> Interval.mem (ts - ts') i) in 
-    let pdts = List.map tstps_in ~f:(fun (_, tp') -> Pdt.applyN vars (eval_r tp' tp' tp mr) es) in 
-    let z = Pdt.applyN vars (fun ps -> if List.for_all ps ~f:(fun p -> Proof.isRV p) 
-      then Proof.V (Proof.VPrex (tp, Fdeque.of_list (List.map ps ~f:Proof.unRV))) 
-      else minp_list (List.filter_map ps ~f:(fun p -> if Proof.isRV p 
-        then None 
-        else Some (Proof.S (Proof.SPrex (Proof.unRS p)))))) pdts in
-    z (* failwith "fail"  *)
 
   let rec eval_r tp i j mr es = 
       
@@ -1309,8 +1309,8 @@ module Prex = struct
         
     (* let p := acces es (explanations) *)
     (* Handle the "C(i, j, φ?)" case *)
-    let eval_question i j tp =
-      let p = List.nth_exn es (i - tp) in
+    let eval_test i j phi =
+      let p = List.nth_exn (List.nth_exn es (i - tp)) phi in
       match p with
       | Proof.S p -> Proof.RS (Proof.STest p)
       | Proof.V p -> Proof.RV (Proof.VTest p)
@@ -1325,7 +1325,7 @@ module Prex = struct
       | Proof.RV p1, Proof.RV p2 -> Proof.RV (Proof.VPlus (p1, p2))
     in 
 
-    (* Handle "C(i, j, r + s)" *)
+    (* Handle "C(i, j, r + s)" - QUESTION: O(...)? *)
     let eval_plus i j r1 r2 =
       let p1 = eval_r tp i j mr es in
       let p2 = eval_r tp i j mr es in
@@ -1335,7 +1335,7 @@ module Prex = struct
     (* Handle "C(i, j, r · s)" *)
     let eval_concat i j r s =
       let ps0 = List.init (j - i) ~f:(fun k -> eval_r tp i (i + k) r es) in
-      let ps1 = List.init (j - i) ~f:(fun k -> eval_r tp (i + k) j s es) in
+      let ps1 = List.init (j - i) ~f:(fun k -> eval_r tp (i + k) j s es) in (* QUESTION: O(j,j,r)? *)
       if List.exists (List.range 0 (j - i)) ~f:(fun k -> Proof.isRS (List.nth_exn ps0 k) && Proof.isRS (List.nth_exn ps1 k)) then
         minrp_list (List.filter_map (List.range 0 (j - i)) ~f:(fun k ->
           let ps0_k = List.nth_exn ps0 k in
@@ -1352,19 +1352,72 @@ module Prex = struct
         Proof.RV (Proof.VConcat (Fdeque.of_list qs))
     in 
 
-    (* impelement do_star function for Kleene star case *)
-
+    (* Helper for Kleene star case below *)                                                            
     let do_star i j r =
-      (* Define E+ set: edges (k, l) where the pattern matches *)
-      let e_plus = 
+      (* Helper function to generate all pairs (k, l) such that i <= k < l <= j *)
+      let generate_pairs i j = List.concat (List.map (fun k -> List.map (fun l -> (k, l)) 
+                                                     (List.init (j - k) (fun x -> k + x + 1))) 
+                                                     (List.init (j - i + 1) (fun x -> i + x))) in
+    
+      (* Define E+ and E- *)
+      let e_plus =
+        List.filter (fun (k, l) -> Proof.RS (eval_r tp k l r es)) (generate_pairs i j) in
       let e_minus =
-      let v =
-                                                                                 
+        List.filter (fun (k, l) -> Proof.RV (eval_r tp k l r es)) (generate_pairs i j) in
+    
+      (* Define the set of vertices V *)
+      let v = List.init (j - i + 1) (fun x -> i + x) in
+    
+      (* Define the weight function w for E+ - TODO: change to the wieghts on the papar, "f" is not correct!! *)
+      let w (k, l) = if List.exists e_plus (fun (k', l') -> k = k' && l = l') then f(eval_r tp k l r es) in
+    
+      (* Construct the weighted graph G' *)
+      (* Initialize an empty graph *)
+      let graph = G.empty in
+      
+      (* Define the set of vertices V: all integers from i to j *)
+      let vertices = List.init (j - i + 1) (fun x -> i + x) in
+
+      (* Add vertices to the graph *)
+      let graph_with_vertices = List.fold_left vertices (fun g v -> G.add_vertex g v) graph in
+
+      (* Add edges from E+ to the graph *)
+      let graph_with_edges = List.fold_left e_plus (fun g (k, l) -> G.add_edge g k l) graph_with_vertices in
+
+      (* Add edges with weights to the graph *)
+      let g' = List.iter w (fun (k, l, weight) -> G.add_edge_e graph (k, l, weight)) in
+    
+      (* Check if i and j are connected in G' *)
+      if reachable g_weighted i j then
+        (* If reachable, find the shortest path *)
+        let sp = shortestPath g_weighted i j in
+        let ps =
+          List.sort_uniq compare
+            (List.map (fun (k, l) -> O k l r) sp) in
+        [Star ps]
+      else
+        (* If not reachable, proceed with min-cut and max-flow *)
+        let c (k, l) =
+          if List.mem (k, l) e_minus then f(O k l r) else infinity in
+        let g_combined = (v, e_plus @ e_minus, c) in
+        let n = (g_combined, c, i, j) in
+        let f_max = maxFlow n in
+        let (s, t) = minCut (g_combined, f_max) in
+        let cut = List.sort compare (List.filter (fun x -> List.mem x t) s) in
+        let n = List.length cut in
+        let ps =
+          List.map
+            (fun k ->
+              let (fst_k, snd_k) = List.nth cut k in
+              O fst_k snd_k r)
+            (List.init n (fun x -> x)) in
+        [Star ps]
+    in
 
     (* Handle "C(i, j, r*)" *)
     let eval_star i j r =
       if i = j then
-        [Proof.SStarEps i] 
+        Proof.RS (Proof.SStarEps i) 
       else
         let do_star' = do_star i j tp mr es in
         do_star'
@@ -1373,11 +1426,22 @@ module Prex = struct
     (* Main logic to determine which case to handle based on input *)
     match mr with
     | MRegex.MWild _ -> eval_wild i j
-    | MRegex.MTest phi -> eval_question i j phi
+    | MRegex.MTest phi -> eval_test i j phi
     | MRegex.MPlus (r, s) -> eval_plus i j r s
     | MRegex.MConcat (r, s) -> eval_concat i j r s
     | MRegex.MStar r -> eval_star i j r
     | _ -> failwith "Unhandled proof type"
+
+  let eval vars i ts tp mr (es, tstps) =
+    let tstps_in = List.take_while tstps (fun (ts', _) -> Interval.mem (ts - ts') i) in 
+    (* TODO: might not be correct - outer list vs inner list? *)
+    let pdts = List.map tstps_in ~f:(fun (_, tp') -> Pdt.applyN vars (eval_r tp' tp' tp mr) (List.map es ~f:(Pdt.applyN vars (fun x -> x)))) in 
+    let z = Pdt.applyN vars (fun ps -> if List.for_all ps ~f:(fun p -> Proof.isRV p) 
+      then Proof.V (Proof.VPrex (tp, Fdeque.of_list (List.map ps ~f:Proof.unRV))) 
+      else minp_list (List.filter_map ps ~f:(fun p -> if Proof.isRV p 
+        then None 
+        else Some (Proof.S (Proof.SPrex (Proof.unRS p)))))) pdts in
+    (mr, z)
 
 end
 
@@ -1414,6 +1478,8 @@ module MFormula = struct
 
   type tss = timestamp list
   type tstps = (timestamp * timepoint) list
+
+  open MRegex
 
   type t =
     | MTT
@@ -1905,11 +1971,11 @@ let rec meval vars ts tp (db: Db.t) is_vis = function
      let buf' = BufNt.add zss [(ts, tp)] buft in 
      let ((mr', zs, es'), buf'') = BufNt.take (fun expls (ts, tp) (mr, zs, es) -> 
                                    let es' = Prex.clean i ts (BufNt.add [expls] [(ts, tp)] es) in 
-                                   let (mr', z) = Prex.eval i ts tp mr es' in 
+                                   let (mr', z) = Prex.eval vars i ts tp mr es' in 
                                    (mr', zs@[z], es')) (mr, [], es) buf' in 
      (zs, MPrex (i, mr', buf'', mfs', es'))
   
-(* TODO: implement meval_regex! *)
+
 
 module MState = struct
 

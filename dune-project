@@ -30,6 +30,7 @@
  (depends
   (ocaml (>= 4.11))
   (dune (>= 3.0))
+  (ocamlgraph (>= 2.1.0))
   (core_kernel (>= v0.14))
   (base (>= v0.14))
   (menhir (>= 20220210))

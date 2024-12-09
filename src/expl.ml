@@ -363,6 +363,7 @@ predicate logic, and more advanced features like handling regular expressions *)
     | S sp -> sp
     | _ -> raise (Invalid_argument "unS is not defined for V proofs")
 
+  (* Added *)  
   let unRV = function
     | RV vp -> vp
     | _ -> raise (Invalid_argument "unRV is not defined for RS proofs")
@@ -383,6 +384,7 @@ predicate logic, and more advanced features like handling regular expressions *)
     | S _ -> false
     | V _ -> true
 
+  (* Added *)  
   let isRS = function
   | RS _ -> true
   | RV _ -> false

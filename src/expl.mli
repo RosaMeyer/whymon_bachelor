@@ -145,9 +145,6 @@ module Proof : sig
   val vr_at: rvp -> int * int
   val p_at: t -> int
 
-  val size_p: t -> int
-  val size_rp: rt -> int
-
   val s_ltp: sp -> int
   val v_etp: vp -> int
 
@@ -161,6 +158,9 @@ module Proof : sig
     val minp: t -> t -> t
     val minp_list: t list -> t
     val minrp_list: rt list -> rt
+
+    val size_p: t -> int
+    val size_rp: rt -> int
 
   end
 
