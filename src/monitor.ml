@@ -1266,13 +1266,7 @@ module MRegex = struct
 end
 
 (* Added *)
-module G = Graph.Persistent.Digraph.Concrete (struct
-  type t = int
-  let compare = compare
-  let hash = Hashtbl.hash
-  let equal = (=)
-end)
-
+module G = Graph.Pack.Digraph 
 
 (* Added - QUESTION: implement how? *)
 module Frex = struct
@@ -1355,42 +1349,35 @@ module Prex = struct
     (* Helper for Kleene star case below *)                                                            
     let do_star i j r =
       (* Helper function to generate all pairs (k, l) such that i <= k < l <= j *)
-      let generate_pairs i j = List.concat (
+      let pairs = List.concat (
         List.map 
-          (List.init (j - i + 1) (fun x -> i + x))  
-          (fun k -> List.map (List.init (j - k) (fun x -> k + x + 1)) (fun l -> (k, l)))) in
-    
+          (List.init (j - i) (fun x -> i + x))  
+          (fun k -> List.map (List.init (j - k - 1) (fun x -> k + x + 1)) (fun l -> ((k, l), eval_r tp k l r es)))) in
+
       (* Define E+ and E-: && i <= k && k < l && l <= j *)
       let e_plus =
-        List.filter (generate_pairs i j) (fun (k, l) -> Proof.isRS (eval_r tp k l r es)) in
+        List.map (List.filter (pairs) (fun (_, rp) -> Proof.isRS rp)) ~f:(fun (kl, rp) -> (kl, Proof.unRS rp)) in
       let e_minus =
-        List.filter (generate_pairs i j) (fun (k, l) -> Proof.isRV (eval_r tp k l r es)) in
+        List.map (List.filter (pairs) (fun (_, rp) -> Proof.isRV rp)) ~f:(fun (kl, rp) -> (kl, Proof.unRV rp)) in
     
       (* Define the set of vertices V *)
-      let v = List.init (j - i + 1) (fun x -> i + x) in
-    
-      (* Define the weight function w for E+ - TODO: change to the wieghts on the papar, "f" is not correct!! *)
-      let w k l = if List.exists e_plus (fun (k', l') -> k = k' && l = l') then f(eval_r tp k l r es) in
+      let v = List.init (j - i) (fun x -> i + x) in
     
       (* Construct the weighted graph G' - initialize an empty graph*)
-      let graph = G.empty in
-      
-      (* Define the set of vertices V: all integers from i to j *)
-      let vertices = List.init (j - i + 1) (fun x -> i + x) in
-
-      (* Add vertices to the graph *)
-      let graph_with_vertices = List.fold_left vertices (fun g v -> G.add_vertex g v) graph in
-
-      (* Add edges from E+ to the graph *)
-      let graph_with_edges = List.fold_left e_plus (fun g (k, l) -> G.add_edge g k l) graph_with_vertices in
-
+      let graph = G.create () in
+       
       (* Add edges with weights to the graph *)
-      let g' = List.iter w (fun (k, l, weight) -> G.add_edge_e graph (k, l, weight)) in
+      List.iter e_plus (fun ((k, l), rp) -> G.add_edge_e graph (G.E.create (G.V.create k) (Proof.Size.size_rp (Proof.RS rp)) (G.V.create l)));
     
       (* Check if i and j are connected in G' *)
-      if Graph.Path.exists g' i j then
+      try 
+        let path, _ = G.shortest_path graph (G.V.create i) (G.V.create j) in
+        let proofs = List.map path (fun e -> snd (List.find_exn e_plus ~f:(fun ((k', l'), rp) -> Int.equal k' (G.V.label (G.E.src e)) && Int.equal l' (G.V.label (G.E.dst e))))) in 
+        Proof.RS (Proof.SStar (Fdeque.of_list proofs))
+      with Not_found -> 
+
         (* If reachable, find the shortest path *)
-        let sp = Graph.Path.shortest_path w g' i j in
+       (* let sp = Graph.Path.shortest_path w g' i j in
         let ps =
           List.sort_uniq compare
             (List.map sp (fun (k, l) -> eval_r tp k l r es))
@@ -1416,7 +1403,7 @@ module Prex = struct
               O fst_k snd_k r)
             (List.init n' (fun x -> x))
         in
-        Proof.RV (Proof.SStar ps)
+        Proof.RV (Proof.SStar ps) *)
     in
 
     (* Handle "C(i, j, r*)" *)
