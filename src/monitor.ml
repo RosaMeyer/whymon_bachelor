@@ -1377,7 +1377,8 @@ module Prex = struct
       with Not_found -> 
 
         (* If reachable, find the shortest path *)
-       (* let sp = Graph.Path.shortest_path w g' i j in
+       (* 
+       let sp = Graph.Path.shortest_path w g' i j in
         let ps =
           List.sort_uniq compare
             (List.map sp (fun (k, l) -> eval_r tp k l r es))
