@@ -1354,7 +1354,7 @@ module Prex = struct
           (List.init (j - i) (fun x -> i + x))  
           (fun k -> List.map (List.init (j - k - 1) (fun x -> k + x + 1)) (fun l -> ((k, l), eval_r tp k l r es)))) in
 
-      (* Define E+ and E-: && i <= k && k < l && l <= j *)
+      (* Define E+ and E- *)
       let e_plus =
         List.map (List.filter (pairs) (fun (_, rp) -> Proof.isRS rp)) ~f:(fun (kl, rp) -> (kl, Proof.unRS rp)) in
       let e_minus =
@@ -1363,7 +1363,7 @@ module Prex = struct
       (* Define the set of vertices V *)
       let v = List.init (j - i) (fun x -> i + x) in
     
-      (* Construct the weighted graph G' - initialize an empty graph*)
+      (* Construct the weighted graph G' - initialize an empty graph *)
       let graph = G.create () in
        
       (* Add edges with weights to the graph *)
@@ -1528,7 +1528,7 @@ module MFormula = struct
       | MIff (f, g, _)
       | MSince (_, f, g, _, _)
       | MUntil (_, f, g, _, _) -> var_tt x f @ var_tt x g
-    (* Added - TODO: should be implemented for wild, test etc. - stored in predicate case, recursive calls, append or concat *)
+    (* Added - implemented for wild, test etc. - stored in predicate case, recursive calls, append or concat *)
     | MFrex (_, r, _, fs) 
       | MPrex (_, r, _, fs, _) -> 
         (* Get variables from the regular expression 'r' using 'var_r' *)
@@ -1958,7 +1958,7 @@ let rec meval vars ts tp (db: Db.t) is_vis = function
      let expls'' = List.map expls' ~f:(Pdt.reduce Proof.equal) in
      let muaux_pdt'' = if is_vis then muaux_pdt' else Pdt.reduce Until.equal muaux_pdt' in
      (expls'', MUntil (i, mf1', mf2', (buf2', ntstps'), muaux_pdt'')) 
-  (* TODO: *)
+  (* TODO: add MFrex *)
    | MPrex (i, mr, buft, mfs, es) -> 
      let (zss, mfs') = List.unzip (List.map mfs ~f:(fun mf -> meval vars ts tp db is_vis mf)) in
      let buf' = BufNt.add zss [(ts, tp)] buft in 
