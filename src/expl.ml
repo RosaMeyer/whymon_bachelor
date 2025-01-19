@@ -128,7 +128,7 @@ module Part = struct
 
   let split_list_dedup p_eq part = List.map (split_list part) ~f:(dedup p_eq)
 
-  (* Added: join_parts and merge_parts from N-ary mail from Dmitriy *) 
+  (* Added: after join_parts and merge_parts from N-ary mail from Dmitriy *) 
   let rec join_parts ps = match ps with 
     | [] -> trivial []
     | [p] -> List.map ~f:(fun (sub, x) -> (sub, [x])) p
@@ -202,7 +202,7 @@ predicate logic, and more advanced features like handling regular expressions *)
     | VSinceInf of int * int * vp Fdeque.t
     | VUntil of int * vp * vp Fdeque.t
     | VUntilInf of int * int * vp Fdeque.t
-    (* Added so variable propositions to reference proofs involves regular expressions *)
+    (* Added so variable propositions can reference proofs involving regular expressions *)
     | VPrexOut of int 
     | VPrex of int * rvp Fdeque.t
     | VFrex of int * rvp Fdeque.t
@@ -265,7 +265,7 @@ predicate logic, and more advanced features like handling regular expressions *)
       | SUntil (sp2, sp1s), SUntil (sp2', sp1s') ->
        s_equal sp2 sp2' && Int.equal (Fdeque.length sp1s) (Fdeque.length sp1s') &&
          Etc.fdeque_for_all2_exn sp1s sp1s' ~f:(fun sp1 sp1' -> s_equal sp1 sp1')
-    (* Added cases for regular expressions*)
+    (* Added cases for regular expressions *)
     | SPrex (rsp), SPrex (rsp')
       | SFrex (rsp), SFrex (rsp') -> rsp_equal rsp rsp'
     | _ -> false
@@ -353,7 +353,6 @@ predicate logic, and more advanced features like handling regular expressions *)
                                Etc.fdeque_for_all2_exn rs rs' ~f:(fun r r' -> rvp_equal r r')
     | _ -> false
 
-  (* QUESTION: The below (shorter) functions shouldn't need extending? *)  
   let equal x y = match x, y with
     | S sp, S sp' -> s_equal sp sp'
     | V vp, V vp' -> v_equal vp vp'
@@ -363,11 +362,7 @@ predicate logic, and more advanced features like handling regular expressions *)
     | S sp -> sp
     | _ -> raise (Invalid_argument "unS is not defined for V proofs")
 
-  (* Added *)  
-  let unRV = function
-    | RV vp -> vp
-    | _ -> raise (Invalid_argument "unRV is not defined for RS proofs")
-
+  (* Added *)   
   let unRS = function
   | RS sp -> sp
   | _ -> raise (Invalid_argument "unRS is not defined for RV proofs")
@@ -375,6 +370,11 @@ predicate logic, and more advanced features like handling regular expressions *)
   let unV = function
     | V vp -> vp
     | _ -> raise (Invalid_argument "unV is not defined for S proofs")
+
+  (* Added *)  
+  let unRV = function
+    | RV vp -> vp
+    | _ -> raise (Invalid_argument "unRV is not defined for RS proofs")
 
   let isS = function
     | S _ -> true
