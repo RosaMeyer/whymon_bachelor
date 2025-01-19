@@ -61,7 +61,7 @@ let historically i f = Historically (i, f)
 let always i f = Always (i, f)
 let since i f g = Since (i, f, g)
 let until i f g = Until (i, f, g)
-(* TODO: Add smart constructors "smart" for regexes *)
+(* TODO: Add "smart" constructors for regexes *)
 
 (* Rewriting of non-native operators *)
 let trigger i f g = Neg (Since (i, Neg (f), Neg (g)))
@@ -363,13 +363,13 @@ let op_to_string = function
   | Prex (i, _) -> Printf.sprintf "P%s" (Interval.to_string i)
 
 and op_to_string_regex = function
-  | Wild -> Printf.sprintf "★" (* TODO: Check if this symbol should be updated somewhere *)
+  | Wild -> Printf.sprintf "★" (* TODO: Check if this symbol should be updated somewhere - UPDATE: I think it's fine *)
   | Test _ -> Printf.sprintf "?" 
   | Plus _ -> Printf.sprintf "+" 
   | Concat _ -> Printf.sprintf "∙"
   | Star _ -> Printf.sprintf "*"
 
-(* Added: edit comment - prints the output, send to visulazation *)
+(* TODO: implement for regexes. Added: prints the output, send to visulazation *)
 let rec to_string_rec l json = function
   | TT -> Printf.sprintf "⊤"
   | FF -> Printf.sprintf "⊥"
@@ -396,6 +396,7 @@ let rec to_string_rec l json = function
   | _ -> failwith "not implemented"
 let to_string json = to_string_rec 0 json
 
+(* TODO: implement for regexes. *)
 let rec to_json_rec indent pos f =
   let indent' = "  " ^ indent in
   match f with
