@@ -1,1 +1,5 @@
 PREX (att(u,c1) CONCAT . CONCAT att(u,c2) CONCAT . CONCAT att(u,c3))
+
+PREX att(u,c1) ∧
+  ⧫[1,30] (att(u,c2) ∧
+    ⧫[1,30] att(u,c3))
