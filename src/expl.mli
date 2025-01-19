@@ -156,6 +156,7 @@ module Proof : sig
 
     val minp_bool: t -> t -> bool
     val minp: t -> t -> t
+    val minrp: rt -> rt -> rt
     val minp_list: t list -> t
     val minrp_list: rt list -> rt
 
