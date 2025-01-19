@@ -1256,8 +1256,8 @@ module Until = struct
 
 end
 
+(* Added *)
 module MRegex = struct
-  (* Added *)
   type r = 
     | MWild 
     | MTest of int
@@ -1269,12 +1269,12 @@ end
 (* Added *)
 module G = Graph.Pack.Digraph 
 
-(* Added - QUESTION: implement how? *)
+(* Added - TODO: implement *)
 module Frex = struct
 
 end
 
-(* Added - TODO: - since module - update function - check lower bound of interval - recursive pattern macth on ts (time stamps) - assume same length - ts-ts1 is not in i: drop *)
+(* Added - take inspo from since module - update function - check lower bound of interval - recursive pattern macth on ts (time stamps) - assume same length - ts-ts1 is not in i: drop *)
 module Prex = struct
 
   type ('a, 'c) t = ('a list list) * 'c list (* Same type as BufNt *)
@@ -1310,7 +1310,7 @@ module Prex = struct
       | Proof.V p -> Proof.RV (Proof.VTest p)
     in
 
-    (* doSum function - helper *)
+    (* Helper for eval_plus *)
     let do_sum p1 p2 =
       match p1, p2 with
       | Proof.RS p1, Proof.RS p2 -> minrp_list [Proof.RS (Proof.SPlusL p1); Proof.RS (Proof.SPlusR p2)]
@@ -1348,7 +1348,7 @@ module Prex = struct
 
     (* Helper for Kleene star case below *)                                                            
     let do_star i j r =
-      (* Helper function to generate all pairs (k, l) such that i <= k < l <= j *)
+      (* Generate all pairs (k, l) such that i <= k < l <= j *)
       let pairs = List.concat (
         List.map 
           (List.init (j - i) (fun x -> i + x))  
@@ -1427,7 +1427,7 @@ module Prex = struct
 
   let eval vars i ts tp mr (es, tstps) =
     let tstps_in = List.take_while tstps (fun (ts', _) -> Interval.mem (ts - ts') i) in 
-    (* TODO: might not be correct - outer list vs inner list? *)
+    (* QUESTION: might not be correct - outer list vs inner list? *)
     let pdts = List.map tstps_in ~f:(fun (_, tp') -> Pdt.applyN vars (eval_r tp' tp' tp mr) (List.map es ~f:(Pdt.applyN vars (fun x -> x)))) in 
     (* Stdio.printf "tstps: %d, %d \n" (List.length tstps) (List.length tstps_in); *)
     let z = Pdt.applyN vars (fun ps -> if List.for_all ps ~f:(fun p -> Proof.isRV p) 
@@ -1499,7 +1499,7 @@ module MFormula = struct
     | MFrex         of Interval.t * r * (Expl.t, timestamp * timepoint) BufNt.t * t list
     | MPrex         of Interval.t * r * (Expl.t, timestamp * timepoint) BufNt.t * t list * (Expl.t, timestamp * timepoint) BufNt.t
 
-  (* Helper function for handling regular expressions in var_tt *)
+  (* Added: function for handling regular expressions in var_tt *)
   let rec var_r x = function
     | MWild -> []  (* No variables in wildcards *)
     | MTest _ -> []  (* No variables in test terms *)
@@ -1532,7 +1532,7 @@ module MFormula = struct
     (* Added - implemented for wild, test etc. - stored in predicate case, recursive calls, append or concat *)
     | MFrex (_, r, _, fs) 
       | MPrex (_, r, _, fs, _) -> 
-        (* Get variables from the regular expression 'r' using 'var_r' *)
+        (* Get variables from the regex r using var_r *)
         let var_r_vars = var_r x r in
         (* Use fold_left to accumulate variables from the list of formulas 'fs' *)
         List.fold_left fs ~init:var_r_vars ~f:(fun acc f -> acc @ var_tt x f)
@@ -1581,6 +1581,7 @@ module MFormula = struct
     | Ok b -> b
     | Unequal_lengths -> false
 
+  (* Added *)  
   let tstps_equal tstps tstps' =
     match List.for_all2 tstps tstps' ~f:tstp_equal with
     | Ok b -> b
@@ -1642,7 +1643,8 @@ module MFormula = struct
        Interval.equal i i' && Buf2t.equal buf2t buf2t' Expl.equal Expl.equal tstp_equal &&
          equal mf1 mf1' && equal mf2 mf2' && (Pdt.equal Until.equal) muaux_pdt muaux_pdt'
     (* Added  *)
-    | MFrex (i, r, buft, fs), MFrex (i', r', buft', fs') -> Interval.equal i i' && equal_regex r r' && BufNt.equal buft buft' Expl.equal tstp_equal && List.for_all2_exn fs fs' ~f:equal
+    | MFrex (i, r, buft, fs), MFrex (i', r', buft', fs') -> 
+      Interval.equal i i' && equal_regex r r' && BufNt.equal buft buft' Expl.equal tstp_equal && List.for_all2_exn fs fs' ~f:equal
     | MPrex (i, r, buft, fs, es), MPrex (i', r', buft', fs', es') -> 
       Interval.equal i i' && equal_regex r r' && BufNt.equal buft buft' Expl.equal tstp_equal && List.for_all2_exn fs fs' ~f:equal && BufNt.equal es es' Expl.equal tstp_equal 
 
