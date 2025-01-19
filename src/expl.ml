@@ -379,16 +379,17 @@ predicate logic, and more advanced features like handling regular expressions *)
   let isS = function
     | S _ -> true
     | V _ -> false
+    
+  (* Added *)  
+  let isRS = function
+    | RS _ -> true
+    | RV _ -> false
 
   let isV = function
     | S _ -> false
     | V _ -> true
 
-  (* Added *)  
-  let isRS = function
-  | RS _ -> true
-  | RV _ -> false
-
+  (* Added *)
   let isRV = function
     | RS _ -> false
     | RV _ -> true
@@ -481,7 +482,7 @@ predicate logic, and more advanced features like handling regular expressions *)
     | VUntilInf (tp, _, _) -> tp
     (* Added: Regular expression cases for v_at *)
     | VPrexOut tp -> tp
-    | VFrex (tp, _) -> tp (* double check with Andre *)
+    | VFrex (tp, _) -> tp (* TODO: double check with Andrei *)
     | VPrex (tp, _) -> tp
 
   (* Added: Function to handle regular expressions for s_at *)
@@ -937,6 +938,7 @@ predicate logic, and more advanced features like handling regular expressions *)
       | S s_p -> s s_p
       | V v_p -> v v_p
 
+    (* Added *)  
     let size_rp = function
       | RS s_rp -> sr s_rp
       | RV v_rp -> vr v_rp
@@ -945,12 +947,14 @@ predicate logic, and more advanced features like handling regular expressions *)
 
     let minp x y = if size_p x <= size_p y then x else y
     
+    (* Added *)
     let minrp x y = if size_rp x <= size_rp y then x else y
 
     let minp_list = function
       | [] -> raise (Invalid_argument "function not defined for empty lists")
       | x :: xs -> List.fold_left xs ~init:x ~f:minp
     
+    (* Added *)  
     let minrp_list = function
       | [] -> raise (Invalid_argument "function not defined for empty lists")
       | x :: xs -> List.fold_left xs ~init:x ~f:minrp
@@ -1086,7 +1090,7 @@ module Pdt = struct
     | Leaf _ -> true
     | Node _ -> false
 
-  (* Added: implemented applyN after the code from Isabelle Proof system (N-ary), send by Dmitriy *)  
+  (* Added: implemented applyN after the code from Isabelle Proof system (N-ary) - email send by Dmitriy *)  
   let rec applyN vars f pdts = match vars with
     | z :: vars -> 
       let f' = papply_list f (List.map ~f:(fun pdt -> if is_Leaf pdt then Some (unleaf pdt) else None) pdts) in
