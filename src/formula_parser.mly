@@ -48,7 +48,7 @@ let debug m = if !debug then Stdio.print_endline ("[debug] formula_parser: " ^ m
 %token RELEASE
 %token TRIGGER
 
-(* TODO: Regex tokens *)
+(* Added: Regex tokens *)
 %token FREX
 %token PREX
 %token QM (* Test *)
