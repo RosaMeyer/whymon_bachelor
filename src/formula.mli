@@ -69,7 +69,6 @@ val equal: t -> t -> bool
 val fv: t -> (String.t, Base.String.comparator_witness) Base.Set.t
 val check_bindings: t -> bool
 
-(* TODO: Need to check subfs_dfs *)
 val subfs_dfs: t -> (t, regex) Base.Either.t list
 val subfs_dfs_regex: regex -> (t, regex) Base.Either.t list
 val subfs_scope: t -> int -> (int * (int list * int list)) list
