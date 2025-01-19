@@ -243,7 +243,7 @@ module BufNt = struct
 
   (* TODO:: Concatenates a list of lists with list og lists - List.map2 use with append *)
   let add (xss : 'a list list) (ts : 'c list) ((ls1, ls2) : ('a list list) * 'c list) : ('a list list) * 'c list =
-    Stdio.printf "%d, %d \n" (List.length xss) (List.length ls1);
+    (* Stdio.printf "%d, %d \n" (List.length xss) (List.length ls1); *)
     let new_ls1 = List.map2_exn xss ls1 (fun xs l1 -> l1 @ xs) in
     let new_ls2 = ls2 @ ts in
     (new_ls1, new_ls2)
@@ -1429,7 +1429,7 @@ module Prex = struct
     let tstps_in = List.take_while tstps (fun (ts', _) -> Interval.mem (ts - ts') i) in 
     (* TODO: might not be correct - outer list vs inner list? *)
     let pdts = List.map tstps_in ~f:(fun (_, tp') -> Pdt.applyN vars (eval_r tp' tp' tp mr) (List.map es ~f:(Pdt.applyN vars (fun x -> x)))) in 
-    Stdio.printf "tstps: %d, %d \n" (List.length tstps) (List.length tstps_in);
+    (* Stdio.printf "tstps: %d, %d \n" (List.length tstps) (List.length tstps_in); *)
     let z = Pdt.applyN vars (fun ps -> if List.for_all ps ~f:(fun p -> Proof.isRV p) 
       then Proof.V (Proof.VPrex (tp, Fdeque.of_list (List.map ps ~f:Proof.unRV))) 
       else minp_list (List.filter_map ps ~f:(fun p -> if Proof.isRV p 
