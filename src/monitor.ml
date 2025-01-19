@@ -242,9 +242,10 @@ module BufNt = struct
   type ('a, 'c) t = ('a list list) * 'c list
 
   (* TODO:: Concatenates a list of lists with list og lists - List.map2 use with append *)
-  let add (xss : 'a list list) (yss : 'c list) ((ls1, ls2) : ('a list list) * 'c list) : ('a list list) * 'c list =
+  let add (xss : 'a list list) (ts : 'c list) ((ls1, ls2) : ('a list list) * 'c list) : ('a list list) * 'c list =
+    Stdio.printf "%d, %d \n" (List.length xss) (List.length ls1);
     let new_ls1 = List.map2_exn xss ls1 (fun xs l1 -> l1 @ xs) in
-    let new_ls2 = ls2 @ yss in
+    let new_ls2 = ls2 @ ts in
     (new_ls1, new_ls2)
   
   (* Recursively apply a function f to the heads of the nested lists to each match of regex patterns in the lists *)
@@ -1280,17 +1281,16 @@ module Prex = struct
 
   (* Remove elements of the expls list that correspond to timestamps in ts that fall outside the specified interval i - ts is tech a part of (ts, tp) *)
   let rec clean i t (expls, ts) =
-    match (expls, ts) with
-    | ([], _) | (_, []) -> ([], []) (* Base case: one of the lists is empty *)
-    | (expl :: expls_tail, (t', _) :: ts_tail) ->
+    match ts with
+    | [] -> (expls, []) (* Base case: one of the lists is empty *)
+    | (t', _) :: ts_tail ->
         (* Extract the lower and upper bounds of the interval *)
         if Interval.below (t - t') i then
+          (* Skip the current element *)
+          clean i t (List.map expls ~f:(List.tl_exn), ts_tail)
+        else
           (* Keep the current element, recurse on the rest *)
           (expls, ts)
-        else
-          (* Skip the current element *)
-          clean i t (expls_tail, ts_tail)
-
   let rec eval_r tp i j mr es = 
       
     (* Handle the "C(i, j, *)" case *)
@@ -1304,7 +1304,7 @@ module Prex = struct
     (* let p := acces es (explanations) *)
     (* Handle the "C(i, j, φ?)" case *)
     let eval_test i j phi =
-      let p = List.nth_exn (List.nth_exn es (i - tp)) phi in
+      let p = List.nth_exn (List.nth_exn es phi) (i - tp) in
       match p with
       | Proof.S p -> Proof.RS (Proof.STest p)
       | Proof.V p -> Proof.RV (Proof.VTest p)
@@ -1328,10 +1328,10 @@ module Prex = struct
 
     (* Handle "C(i, j, r · s)" *)
     let eval_concat i j r s =
-      let ps0 = List.init (j - i) ~f:(fun k -> eval_r tp i (i + k) r es) in
-      let ps1 = List.init (j - i) ~f:(fun k -> eval_r tp (i + k) j s es) in (* QUESTION: O(j,j,r)? *)
-      if List.exists (List.range 0 (j - i)) ~f:(fun k -> Proof.isRS (List.nth_exn ps0 k) && Proof.isRS (List.nth_exn ps1 k)) then
-        minrp_list (List.filter_map (List.range 0 (j - i)) ~f:(fun k ->
+      let ps0 = List.init (j - i + 1) ~f:(fun k -> eval_r tp i (i + k) r es) in
+      let ps1 = List.init (j - i + 1) ~f:(fun k -> eval_r tp (i + k) j s es) in (* QUESTION: O(j,j,r)? *)
+      if List.exists (List.range 0 (j - i + 1)) ~f:(fun k -> Proof.isRS (List.nth_exn ps0 k) && Proof.isRS (List.nth_exn ps1 k)) then
+        minrp_list (List.filter_map (List.range 0 (j - i + 1)) ~f:(fun k ->
           let ps0_k = List.nth_exn ps0 k in
           let ps1_k = List.nth_exn ps1 k in
           if Proof.isRS ps0_k && Proof.isRS ps1_k then
@@ -1339,7 +1339,7 @@ module Prex = struct
           else
             None))
       else
-        let qs = List.map (List.range 0 (j - i)) ~f:(fun k ->
+        let qs = List.map (List.range 0 (j - i + 1)) ~f:(fun k ->
           let ps0_k = List.nth_exn ps0 k in
           let ps1_k = List.nth_exn ps1 k in
           Proof.unRV (minrp_list (List.filter [ps0_k; ps1_k] ~f:Proof.isRV))) in
@@ -1374,7 +1374,7 @@ module Prex = struct
         let path, _ = G.shortest_path graph (G.V.create i) (G.V.create j) in
         let proofs = List.map path (fun e -> snd (List.find_exn e_plus ~f:(fun ((k', l'), rp) -> Int.equal k' (G.V.label (G.E.src e)) && Int.equal l' (G.V.label (G.E.dst e))))) in 
         Proof.RS (Proof.SStar (Fdeque.of_list proofs))
-      with Not_found -> 
+      with Not_found -> failwith "fail"
 
         (* If reachable, find the shortest path *)
        (* 
@@ -1412,7 +1412,7 @@ module Prex = struct
       if i = j then
         Proof.RS (Proof.SStarEps i) 
       else
-        let do_star' = do_star i j tp mr es in
+        let do_star' = do_star i j mr in
         do_star'
     in
 
@@ -1429,6 +1429,7 @@ module Prex = struct
     let tstps_in = List.take_while tstps (fun (ts', _) -> Interval.mem (ts - ts') i) in 
     (* TODO: might not be correct - outer list vs inner list? *)
     let pdts = List.map tstps_in ~f:(fun (_, tp') -> Pdt.applyN vars (eval_r tp' tp' tp mr) (List.map es ~f:(Pdt.applyN vars (fun x -> x)))) in 
+    Stdio.printf "tstps: %d, %d \n" (List.length tstps) (List.length tstps_in);
     let z = Pdt.applyN vars (fun ps -> if List.for_all ps ~f:(fun p -> Proof.isRV p) 
       then Proof.V (Proof.VPrex (tp, Fdeque.of_list (List.map ps ~f:Proof.unRV))) 
       else minp_list (List.filter_map ps ~f:(fun p -> if Proof.isRV p 
@@ -1963,7 +1964,7 @@ let rec meval vars ts tp (db: Db.t) is_vis = function
      let (zss, mfs') = List.unzip (List.map mfs ~f:(fun mf -> meval vars ts tp db is_vis mf)) in
      let buf' = BufNt.add zss [(ts, tp)] buft in 
      let ((mr', zs, es'), buf'') = BufNt.take (fun expls (ts, tp) (mr, zs, es) -> 
-                                   let es' = Prex.clean i ts (BufNt.add [expls] [(ts, tp)] es) in 
+                                   let es' = Prex.clean i ts (BufNt.add (List.map expls ~f:(fun e -> [e])) [(ts, tp)] es) in 
                                    let (mr', z) = Prex.eval vars i ts tp mr es' in 
                                    (mr', zs@[z], es')) (mr, [], es) buf' in 
      (zs, MPrex (i, mr', buf'', mfs', es'))
