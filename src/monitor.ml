@@ -1346,7 +1346,7 @@ module Prex = struct
         Proof.RV (Proof.VConcat (Fdeque.of_list qs))
     in 
 
-    (* Helper for Kleene star case below *)                                                            
+    (* Helper for Kleene star case below - page 42 Yuan's thesis *)                                                            
     let do_star i j r =
       (* Generate all pairs (k, l) such that i <= k < l <= j *)
       let pairs = List.concat (
