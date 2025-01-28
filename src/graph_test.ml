@@ -97,76 +97,104 @@ module G = Graph.Pack.Digraph
 (* Define the module for min_cutset operations *)
 module Cut = Graph.Mincut.Make(G)
 
-(* module Flow = Graph.Flow.Goldberg_Tarjan(G)(struct
-type t = int
-type label = int
-let max_capacity x = x
-let flow _ = 0
-let add = (+)
-let sub = (-)
-let zero = 0
-let compare = compare
-end) *)
+type eint = Int of int | Inf
 
-module Flow = Graph.Flow.Ford_Fulkerson(G)(struct
-  type t = int
-  type label = int
+let e0 = Int 0
+
+let eadd e1 e2 = match e1, e2 with
+  | Int x, Int y -> Int (x + y)
+  | _ -> Inf
+
+let esub e1 e2 = match e1, e2 with
+  | Int x, Int y -> Int (x - y)
+  | Int x, Inf -> e0
+  | _ -> Inf
+
+let ecompare e1 e2 = match e1, e2 with
+  | Int x, Int y -> compare x y
+  | Int _, Inf -> -1
+  | Inf, Int _ -> 1
+  | Inf, Inf -> 0  
+  
+let to_string = function
+  | Int x -> string_of_int x
+  | Inf -> "inf"
+
+module EI = struct
+  type t = eint
+  let compare : t -> t -> int = ecompare
+  let default = e0
+end
+  
+module EG = Imperative.Digraph.AbstractLabeled(EI)(EI)
+
+module Flow = Graph.Flow.Ford_Fulkerson(EG)(struct
+  type t = eint
+  type label = eint
   let max_capacity x = x
-  let flow _ = 0
-  let add = (+)
-  let sub = (-)
-  let zero = 0
-  let compare = compare
-  let min_capacity _ = 0
+  let flow _ = e0
+  let add = eadd
+  let sub = esub
+  let zero = e0
+  let compare = ecompare
+  let min_capacity _ = e0
 end)
 
 (* Main function *)
 let () =
   (* Create a directed graph *)
-  let g = G.create () in
+  let g = EG.create () in
 
   (* Add vertices *)
-  let v1 = G.V.create 1 in
-  let v2 = G.V.create 2 in
-  let v3 = G.V.create 3 in
-  let v4 = G.V.create 4 in
-  let v5 = G.V.create 5 in
+  let v1 = EG.V.create (Int 1) in
+  let v2 = EG.V.create (Int 2) in
+  let v3 = EG.V.create (Int 3) in
+  let v4 = EG.V.create (Int 4) in
 
-  (* G.add_vertex g v1;
-  G.add_vertex g v2; *)
-  (* G.add_vertex g v3;
-  G.add_vertex g v4;
-  G.add_vertex g v5; *)
-
-  let e1 = G.E.create v1 3 v2 in
+  let e1 = EG.E.create v1 (Inf) v2 in
+  let e2 = EG.E.create v2 (Int 5) v3 in
+  let e3 = EG.E.create v3 (Int 5) v4 in
+  let e4 = EG.E.create v1 (Int 6) v4 in
+  let e5 = EG.E.create v1 (Inf) v3 in
+  let e6 = EG.E.create v2 (Int 2) v4 in
 
   (* Add edges with capacities *)
-  G.add_edge_e g (e1); (* Edge from v1 to v2 with weight 3 *)
-  G.add_edge_e g (G.E.create v2 2 v3); (* Edge from v2 to v3 with weight 2 *)
-  G.add_edge_e g (G.E.create v3 3 v4); (* Edge from v3 to v4 with weight 3 *)
-  G.add_edge_e g (G.E.create v4 2 v5); (* Edge from v4 to v5 with weight 2 *)
+  EG.add_edge_e g (e1); (* Edge from v1 to v2 with weight 3 *)
+  EG.add_edge_e g (e2);
+  EG.add_edge_e g (e3);
+  EG.add_edge_e g (e4);
+  EG.add_edge_e g (e5);
+  EG.add_edge_e g (e6);
 
   (* Compute max flow *)
   let source = v1 in
-  let sink = v5 in
+  let sink = v4 in
   let flow_f, flow = Flow.maxflow g source sink in
 
   (* Print the maximum flow *)
   Printf.printf "Testing min_cut using Ford-Fulkerson algorithm:\n";
-  Printf.printf "Maximum flow: %d\n" flow;
+  Printf.printf "Maximum flow: %s\n" (to_string flow);
 
-  Printf.printf "Flow: %d\n" (flow_f e1);
+  Printf.printf "Flow e1: %s\n" (to_string (flow_f e1));
+  Printf.printf "Flow e2: %s\n" (to_string (flow_f e2));
+  Printf.printf "Flow e3: %s\n" (to_string (flow_f e3));
+  Printf.printf "Flow e4: %s\n" (to_string (flow_f e4));
+  Printf.printf "Flow e5: %s\n" (to_string (flow_f e5));
+  Printf.printf "Flow e6: %s\n" (to_string (flow_f e6));
 
-  (* Compute the min-cut *)
+  
+
+
+
+  (* Compute the min-cut
   let cutset = Cut.min_cutset g source in
   Printf.printf "Min-cut vertices reachable from source (%d):\n" (G.V.label source);
   List.iter
     (fun v -> Printf.printf "Vertex: %d\n" (G.V.label v))
-    cutset;    
-    
-  
+    cutset;     
+    *)
 
-G.iter_edges (fun v1 v2 -> Printf.printf "Edge: %d -> %d\n" (G.V.label v1) (G.V.label v2)) g; 
+(* G.iter_edges (fun v1 v2 -> Printf.printf "Edge: %d -> %d\n" (G.V.label v1) (G.V.label v2)) g;  *)
 
 
 
