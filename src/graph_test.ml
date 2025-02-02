@@ -5,89 +5,7 @@ ocamlfind ocamlc -package ocamlgraph -linkpkg graph_test.ml -o graph_test
 
 *)
 
-(*
-(* graph_test.ml *)
-open Graph
-
-(* Define the graph module *)
-module G = Graph.Pack.Digraph
-
-(* Define the module for min_cutset operations *)
-module Cut = Graph.Mincut.Make(G)
-
-(* Use the Edmonds-Karp algorithm for flow computation *)
-module Flow = Graph.Flow.Ford_Fulkerson(G)
-
-(* Define the Flow module outside of the function *)
-module F = Flow(struct
-  type t = int
-  type label = int
-  let max_capacity _ = max_int
-  let flow _ = 0
-  let add = (+)
-  let sub = (-)
-  let zero = 0
-  let compare = compare
-  let min_capacity _ = 0
-  let graph = G.create ()
-end)  
-
-(* Main function *)
-let () =
-  (* Create a directed graph *)
-  let g = G.create () in
-
-  (* Add vertices *)
-  let v1 = G.V.create 1 in
-  let v2 = G.V.create 2 in
-  let v3 = G.V.create 3 in
-  let v4 = G.V.create 4 in
-  let v5 = G.V.create 5 in
-
-  G.add_vertex g v1;
-  G.add_vertex g v2;
-  G.add_vertex g v3;
-  G.add_vertex g v4;
-  G.add_vertex g v5;
-
-  (* Add edges with capacities *)
-  G.add_edge_e g (G.E.create v1 3 v2); (* Edge from v1 to v2 with weight 3 *)
-  G.add_edge_e g (G.E.create v2 2 v3); (* Edge from v2 to v3 with weight 2 *)
-  G.add_edge_e g (G.E.create v3 3 v4); (* Edge from v3 to v4 with weight 3 *)
-  G.add_edge_e g (G.E.create v4 2 v5); (* Edge from v4 to v5 with weight 2 *)
-
-  (* Compute max flow *)
-  let source = v1 in
-  let sink = v5 in
-  let module F = Flow(struct
-    type t = int
-    type label = int
-    let max_capacity _ = max_int
-    let flow _ = 0
-    let add = (+)
-    let sub = (-)
-    let zero = 0
-    let compare = compare
-    let min_capacity _ = 0
-    let graph = G.create ()
-  end) in
-  let _, flow = F.maxflow g source sink in
-
-  (* Print the maximum flow *)
-  Printf.printf "Testing min_cut using Ford-Fulkerson algorithm:\n";
-  Printf.printf "Maximum flow: %d\n" flow;
-
-  (* Compute the min-cut *)
-  let cutset = Cut.min_cutset g source in
-  Printf.printf "Min-cut vertices reachable from source (%d):\n" (G.V.label source);
-  List.iter
-    (fun v -> Printf.printf "Vertex: %d\n" (G.V.label v))
-    (G.fold_vertex (fun v acc -> if List.mem v cutset then v :: acc else acc) g []); *)
-
-
-
-
-
+(* bin/whymon.exe -sig examples/paper-tool/three_attempts.sig -formula examples/paper-tool/three_attempts_copy.mfotl -log examples/paper-tool/three_attempts.log *)
 
 open Graph
 
@@ -140,6 +58,53 @@ module Flow = Graph.Flow.Ford_Fulkerson(EG)(struct
   let min_capacity _ = e0
 end)
 
+(* Added: 28/01 - Perform depth-first search (dfs) on the residual network to find the minimum cut - traverses the residual network
+and marks reachable vertices, the markings are used these markings to identify edges that form the minimum cut *)
+let dfs residual visited start =
+  let rec explore v =
+    if not (Hashtbl.mem visited v) then (
+      Hashtbl.add visited v true;
+      EG.iter_succ (fun u ->
+        let edge = EG.find_edge residual v u in
+        let capacity = EG.E.label edge in
+        if ecompare capacity e0 > 0 then explore u
+      ) residual v
+    )
+  in
+  explore start
+
+(* Added: 28/01 - identifies the marked vertices in the residual network and determines the edges that form the cut *)
+(* Identify the minimum cut edges *)
+let find_min_cut g source sink flow_f =
+  (* Build the residual network *)
+  let residual = EG.copy g in
+  EG.iter_edges_e (fun e ->
+    let u = EG.E.src e in
+    let v = EG.E.dst e in
+    let capacity = EG.E.label e in
+    let f = flow_f e in
+    let residual_capacity = esub capacity f in
+    if ecompare residual_capacity e0 > 0 then (
+      EG.add_edge_e residual (EG.E.create u residual_capacity v));
+    if ecompare f e0 > 0 then (
+      EG.add_edge_e residual (EG.E.create v f u))
+  ) g;
+
+  (* Mark all vertices reachable from the source in the residual network *)
+  let visited = Hashtbl.create (EG.nb_vertex residual) in
+  dfs residual visited source;
+
+  (* Collect the edges that form the cut *)
+  let cut_edges = ref [] in
+  EG.iter_edges_e (fun e ->
+    let u = EG.E.src e in
+    let v = EG.E.dst e in
+    if Hashtbl.mem visited u && not (Hashtbl.mem visited v) then (
+      cut_edges := e :: !cut_edges)
+  ) g;
+  !cut_edges
+
+
 (* Main function *)
 let () =
   (* Create a directed graph *)
@@ -150,90 +115,69 @@ let () =
   let v2 = EG.V.create (Int 2) in
   let v3 = EG.V.create (Int 3) in
   let v4 = EG.V.create (Int 4) in
+  let v5 = EG.V.create (Int 5) in
+  let v6 = EG.V.create (Int 6) in
 
-  let e1 = EG.E.create v1 (Inf) v2 in
-  let e2 = EG.E.create v2 (Int 5) v3 in
-  let e3 = EG.E.create v3 (Int 5) v4 in
-  let e4 = EG.E.create v1 (Int 6) v4 in
-  let e5 = EG.E.create v1 (Inf) v3 in
-  let e6 = EG.E.create v2 (Int 2) v4 in
+  let e1 = EG.E.create v1 (Int 7) v2 in
+  let e2 = EG.E.create v1 (Int 4) v3 in
+  let e3 = EG.E.create v3 (Int 3) v2 in
+  let e4 = EG.E.create v2 (Int 5) v4 in
+  let e5 = EG.E.create v2 (Int 3) v5 in
+  let e6 = EG.E.create v3 (Int 2) v5 in
+  let e7 = EG.E.create v4 (Int 8) v6 in
+  let e8 = EG.E.create v5 (Int 3) v4 in
+  let e9 = EG.E.create v5 (Int 5) v6 in
 
   (* Add edges with capacities *)
-  EG.add_edge_e g (e1); (* Edge from v1 to v2 with weight 3 *)
+  EG.add_edge_e g (e1);
   EG.add_edge_e g (e2);
   EG.add_edge_e g (e3);
   EG.add_edge_e g (e4);
   EG.add_edge_e g (e5);
   EG.add_edge_e g (e6);
+  EG.add_edge_e g (e7);
+  EG.add_edge_e g (e8);
+  EG.add_edge_e g (e9);
 
   (* Compute max flow *)
   let source = v1 in
-  let sink = v4 in
+  let sink = v6 in
   let flow_f, flow = Flow.maxflow g source sink in
-
+  
   (* Print the maximum flow *)
   Printf.printf "Testing min_cut using Ford-Fulkerson algorithm:\n";
   Printf.printf "Maximum flow: %s\n" (to_string flow);
 
-  Printf.printf "Flow e1: %s\n" (to_string (flow_f e1));
-  Printf.printf "Flow e2: %s\n" (to_string (flow_f e2));
-  Printf.printf "Flow e3: %s\n" (to_string (flow_f e3));
-  Printf.printf "Flow e4: %s\n" (to_string (flow_f e4));
-  Printf.printf "Flow e5: %s\n" (to_string (flow_f e5));
-  Printf.printf "Flow e6: %s\n" (to_string (flow_f e6));
-
+  (* Function to collect edges from the graph *)
+  let collect_edges graph =
+    let edges = ref [] in
+    EG.iter_edges_e (fun e -> edges := e :: !edges) graph; (* Correct function to iterate over edges *)
+    List.rev !edges in (* Reverse to maintain order *)
   
+  (* Function to print flows for all edges *)
+  Printf.printf "\nMaximum flow for edges:\n";
+  let edges = collect_edges g in
+  List.iter (fun e ->
+    let u = EG.E.src e in
+    let v = EG.E.dst e in
+    Printf.printf "Edge from v%s to v%s has flow %s\n"
+      (to_string (EG.V.label u))
+      (to_string (EG.V.label v))
+      (to_string (flow_f e))  
+  ) edges;
+
+  (* Added: 28/01 - Finds and prints the minimum cut *)
+  let cut_edges = find_min_cut g source sink flow_f in
+  Printf.printf "\nMinimum cut edges:\n";
+  List.iter (fun e ->
+    let u = EG.E.src e in
+    let v = EG.E.dst e in
+    Printf.printf "Edge from v%s to v%s\n"
+      (to_string (EG.V.label u))
+      (to_string (EG.V.label v))
+  ) cut_edges;
 
 
-
-  (* Compute the min-cut
-  let cutset = Cut.min_cutset g source in
-  Printf.printf "Min-cut vertices reachable from source (%d):\n" (G.V.label source);
-  List.iter
-    (fun v -> Printf.printf "Vertex: %d\n" (G.V.label v))
-    cutset;     
-    *)
-
-(* G.iter_edges (fun v1 v2 -> Printf.printf "Edge: %d -> %d\n" (G.V.label v1) (G.V.label v2)) g;  *)
-
-
-
-
-
-
-
-
-(*
-(* Function to create a sample graph *)
-let create_sample_graph () =
-  let g = G.create () in
-  (* Add vertices *)
-  let v1 = G.V.create 1 in
-  let v2 = G.V.create 2 in
-  let v3 = G.V.create 3 in
-  let v4 = G.V.create 4 in
-  let v5 = G.V.create 5 in
-  List.iter (G.add_vertex g) [v1; v2; v3; v4; v5];
-  (* Add edges *)
-  G.add_edge g v1 v2;  (* edge from 1 to 2 *)
-  G.add_edge g v1 v3;  (* edge from 1 to 3 *)
-  G.add_edge g v2 v4;  (* edge from 2 to 4 *)
-  G.add_edge g v3 v4;  (* edge from 3 to 4 *)
-  G.add_edge g v4 v5;  (* edge from 4 to 5 *)
-  (g, v1)              (* Return the graph and the source vertex *)
-
-(* Return the resulting list from min_cutset *)
-let min_cutset () =
-  let g, source = create_sample_graph () in
-  let cutset = Cut.min_cutset g source in
-  Printf.printf "Min cuts (%d):" (List.length cutset);
-  List.iter (fun v -> Printf.printf " %d" (G.V.label v)) cutset;
-  cutset
-
-(* Main function *)
-let () =
-  let _ = min_cutset () in
-  () *)
 
 
 
@@ -241,37 +185,85 @@ let () =
 
 
 (* 
-(* Function to create a sample graph *)
-let create_sample_graph () =
-  let g = G.create () in
-  (* Add vertices *)
-  let v1 = G.V.create 1 in
-  let v2 = G.V.create 2 in
-  let v3 = G.V.create 3 in
-  let v4 = G.V.create 4 in
-  let v5 = G.V.create 5 in
-  List.iter (G.add_vertex g) [v1; v2; v3; v4; v5];
+
+EXAMPlES and notes
+
+*)
+
+
+(*   
+  let e1 = EG.E.create v1 (Int 10) v2 in
+  let e2 = EG.E.create v1 (Int 10) v3 in
+  let e3 = EG.E.create v2 (Int 2) v3 in
+  let e4 = EG.E.create v2 (Int 8) v4 in
+  let e5 = EG.E.create v3 (Int 9) v5 in
+  let e6 = EG.E.create v4 (Int 6) v5 in
+  let e7 = EG.E.create v2 (Int 4) v5 in
+  let e8 = EG.E.create v5 (Int 10) v6 in
+  let e9 = EG.E.create v4 (Int 10) v6 in
+
   (* Add edges with capacities *)
-  G.add_edge_e g (G.E.create v1 3 v2);  (* edge from 1 to 2 with weight 3 *)
-  G.add_edge_e g (G.E.create v1 2 v3);  (* edge from 1 to 3 with weight 2 *)
-  G.add_edge_e g (G.E.create v2 4 v4);  (* edge from 2 to 4 with weight 4 *)
-  G.add_edge_e g (G.E.create v3 1 v4);  (* edge from 3 to 4 with weight 1 *)
-  G.add_edge_e g (G.E.create v4 2 v5);  (* edge from 4 to 5 with weight 2 *)
-  (g, v1, v5)  (* Return the graph, source, and sink *)
+  EG.add_edge_e g (e1);
+  EG.add_edge_e g (e2);
+  EG.add_edge_e g (e3);
+  EG.add_edge_e g (e4);
+  EG.add_edge_e g (e5);
+  EG.add_edge_e g (e6);
+  EG.add_edge_e g (e7);
+  EG.add_edge_e g (e8);
+  EG.add_edge_e g (e9);
+*)
 
-(* Test the min_cutset function *)
-let test_min_cutset () =
-  let g, source, sink = create_sample_graph () in
-  (* let _, max_flow = F.maxflow g source sink in
-  Printf.printf "Maximum flow: %d\n" max_flow; *)
-  (* Compute the minimum cut *)
-  let cutset = Cut.min_cutset g source in
-  Printf.printf "Min-cut vertices reachable from source (%d):\n" (G.V.label source);
-  List.iter (fun v ->
-    Printf.printf "Vertex: %d\n" (G.V.label v)
-  ) cutset
 
-(* Main function *)
-let () =
-  Printf.printf "Testing min_cut using Ford-Fulkerson algorithm:\n";
-  test_min_cutset () *)
+(*   
+  Printf.printf "Flow e1: %s\n" (to_string (flow_f e1));
+  Printf.printf "Flow e2: %s\n" (to_string (flow_f e2));
+  Printf.printf "Flow e3: %s\n" (to_string (flow_f e3));
+  Printf.printf "Flow e4: %s\n" (to_string (flow_f e4));
+  Printf.printf "Flow e4: %s\n" (to_string (flow_f e5)); 
+*)
+
+(*
+  (* Add vertices *)
+  let v1 = EG.V.create (Int 1) in
+  let v2 = EG.V.create (Int 2) in
+  let v3 = EG.V.create (Int 3) in
+  let v4 = EG.V.create (Int 4) in
+  let e1 = EG.E.create v1 (Inf) v2 in
+  let e2 = EG.E.create v2 (Int 5) v3 in
+  let e3 = EG.E.create v3 (Int 5) v4 in
+  let e4 = EG.E.create v1 (Int 6) v4 in
+  let e5 = EG.E.create v1 (Inf) v3 in
+  let e6 = EG.E.create v2 (Int 2) v4 in
+    
+  (* Add edges with capacities *)
+  EG.add_edge_e g (e1); (* Edge from v1 to v2 with weight 3 *)
+  EG.add_edge_e g (e2);
+  EG.add_edge_e g (e3);
+  EG.add_edge_e g (e4);
+  EG.add_edge_e g (e5);
+  EG.add_edge_e g (e6); 
+*)
+
+
+
+(*
+  (* Add vertices *)
+  let v1 = EG.V.create (Int 1) in
+  let v2 = EG.V.create (Int 2) in
+  let v3 = EG.V.create (Int 3) in
+  let v4 = EG.V.create (Int 4) in
+
+  let e1 = EG.E.create v1 (Int 10) v2 in
+  let e2 = EG.E.create v1 (Int 5) v3 in
+  let e3 = EG.E.create v2 (Int 15) v3 in
+  let e4 = EG.E.create v2 (Int 10) v4 in
+  let e5 = EG.E.create v3 (Int 10) v4 in
+
+  (* Add edges with capacities *)
+  EG.add_edge_e g (e1);
+  EG.add_edge_e g (e2);
+  EG.add_edge_e g (e3);
+  EG.add_edge_e g (e4);
+  EG.add_edge_e g (e5);
+*)
