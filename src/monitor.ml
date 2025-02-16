@@ -1267,7 +1267,99 @@ module MRegex = struct
 end
 
 (* Added *)
+open Graph
+
 module G = Graph.Pack.Digraph 
+
+type eint = Int of int | Inf
+
+let e0 = Int 0
+
+let eadd e1 e2 = match e1, e2 with
+  | Int x, Int y -> Int (x + y)
+  | _ -> Inf
+
+let esub e1 e2 = match e1, e2 with
+  | Int x, Int y -> Int (x - y)
+  | Int x, Inf -> e0
+  | _ -> Inf
+
+let ecompare e1 e2 = match e1, e2 with
+  | Int x, Int y -> compare x y
+  | Int _, Inf -> -1
+  | Inf, Int _ -> 1
+  | Inf, Inf -> 0  
+  
+let to_string = function
+  | Int x -> string_of_int x
+  | Inf -> "inf"
+
+let to_int = function
+  | Int x -> x
+  | _ -> failwith "Not an int"
+
+module EI = struct
+  type t = eint
+  let compare : t -> t -> int = ecompare
+  let default = e0
+end
+  
+module EG = Imperative.Digraph.AbstractLabeled(EI)(EI)
+
+module Flow = Graph.Flow.Ford_Fulkerson(EG)(struct
+  type t = eint
+  type label = eint
+  let max_capacity x = x
+  let flow _ = e0
+  let add = eadd
+  let sub = esub
+  let zero = e0
+  let compare = ecompare
+  let min_capacity _ = e0
+end)
+
+
+(* Added: 28/01 - Perform depth-first search on the residual network to find the minimum cut - traverses the residual network
+and marks reachable vertices, the markings are used to identify edges that form the minimum cut *)
+let dfs residual visited start =
+  let rec visit v =
+    if not (Hashtbl.mem visited (to_int (EG.V.label v))) then (
+    Hashtbl.add_exn visited (to_int (EG.V.label v)) true;
+      EG.iter_succ (fun u ->
+        let edge = EG.find_edge residual v u in
+        let capacity = EG.E.label edge in (* lable = capacity *)
+        if ecompare capacity e0 > 0 then visit u
+      ) residual v)
+in visit start
+
+(* Added: 28/01 - identifies the marked vertices in the residual network and determines the edges that form the cut *)
+(* Identify the minimum cut edges *)
+let min_cut g source sink flow_f =
+  (* Build the residual network *)
+  let residual = EG.copy g in
+  EG.iter_edges_e (fun e ->
+    let u = EG.E.src e in
+    let v = EG.E.dst e in
+    let capacity = EG.E.label e in
+    let f = flow_f e in
+    let residual_capacity = esub capacity f in
+    if ecompare residual_capacity e0 > 0 then
+      EG.add_edge_e residual (EG.E.create u residual_capacity v);
+    if ecompare f e0 > 0 then
+      EG.add_edge_e residual (EG.E.create v f u)
+  ) g;
+
+  (* Mark all vertices reachable from the source in the residual network *)
+  let visited = Hashtbl.create ~size:(EG.nb_vertex residual) (module Int) in dfs residual visited source;
+  
+  (* Collect the edges that form the cut using List.fold_left *)
+  EG.fold_edges_e (fun e acc ->
+    let u = EG.E.src e in
+    let v = EG.E.dst e in
+    if Hashtbl.mem visited (to_int (EG.V.label u)) && not (Hashtbl.mem visited (to_int (EG.V.label v))) then
+      e :: acc  (* Add to the list acc *)
+    else acc
+  ) g []
 
 (* Added - TODO: implement *)
 module Frex = struct
@@ -1358,8 +1450,8 @@ module Prex = struct
       let e_plus =
         List.map (List.filter (pairs) (fun (_, rp) -> Proof.isRS rp)) ~f:(fun (kl, rp) -> (kl, Proof.unRS rp)) in
       let e_minus =
-        List.map (List.filter (pairs) (fun (_, rp) -> Proof.isRV rp)) ~f:(fun (kl, rp) -> (kl, Proof.unRV rp)) in
-    
+        List.map (List.filter (pairs) (fun (_, rp) -> Proof.isRV rp)) ~f:(fun (kl, rp) -> (kl, Proof.unRV rp)) in 
+
       (* Define the set of vertices V *)
       let v = List.init (j - i) (fun x -> i + x) in
     
@@ -1369,42 +1461,41 @@ module Prex = struct
       (* Add edges with weights to the graph *)
       List.iter e_plus (fun ((k, l), rp) -> G.add_edge_e graph (G.E.create (G.V.create k) (Proof.Size.size_rp (Proof.RS rp)) (G.V.create l)));
     
+      let collect_edges graph =
+        G.fold_edges_e (fun e acc -> e :: acc) graph [] |> List.rev in
+      
+      Printf.printf "\nMinimum cut edges:\n";
+      List.iter (collect_edges graph) (fun e ->
+        let u = G.E.src e in
+        let v = G.E.dst e in
+        Printf.printf "Edge from v%d to v%d\n"
+          (G.V.label u)
+          (G.V.label v)
+      );
+
       (* Check if i and j are connected in G' *)
       try 
         let path, _ = G.shortest_path graph (G.V.create i) (G.V.create j) in
         let proofs = List.map path (fun e -> snd (List.find_exn e_plus ~f:(fun ((k', l'), rp) -> Int.equal k' (G.V.label (G.E.src e)) && Int.equal l' (G.V.label (G.E.dst e))))) in 
         Proof.RS (Proof.SStar (Fdeque.of_list proofs))
-      with Not_found -> failwith "fail"
+      with _ -> 
 
-        (* If reachable, find the shortest path *)
-       (* 
-       let sp = Graph.Path.shortest_path w g' i j in
-        let ps =
-          List.sort_uniq compare
-            (List.map sp (fun (k, l) -> eval_r tp k l r es))
-        in
-        Proof.RS (Proof.SStar ps)
-      else
-        (* If not reachable, proceed with min-cut and max-flow *)
-        (* QUESTION: f(O k l r)? *)
-        let c k l =
-          if (List.mem k e_minus && List.mem l e_minus) then f (O k l r) else infinity
-        in
-        let g_combined = (vertices, e_plus @ e_minus, c) in
-        let n = (g_combined, c, i, j) in
-        (* Ford *)
-        let f_max = maxFlow n in
-        let (s, t) = minCut (g_combined, f_max) in
-        let cut = List.sort compare (List.filter (fun x -> List.mem x t) s) in
-        let n' = List.length cut in
-        let ps =
-          List.map
-            (fun k ->
-              let (fst_k, snd_k) = List.nth cut k in
-              O fst_k snd_k r)
-            (List.init n' (fun x -> x))
-        in
-        Proof.RV (Proof.SStar ps) *)
+      ( let edge_mapping = Hashtbl.of_alist_exn (module struct type t = int * int [@@deriving compare, sexp_of, hash] end) e_minus in
+      
+      let graph = EG.create () in 
+       
+      (* Add edges with weights to the graph *)
+      List.iter e_plus (fun ((k, l), rp) -> EG.add_edge_e graph (EG.E.create (EG.V.create (Int k)) (Inf) (EG.V.create (Int l))));  
+      List.iter e_minus (fun ((k, l), rp) -> EG.add_edge_e graph (EG.E.create (EG.V.create (Int k)) (Int (Proof.Size.size_rp (Proof.RV rp))) (EG.V.create (Int l)))); 
+      
+      let source = EG.V.create (Int i) in
+      let sink = EG.V.create (Int j) in
+
+      let flow_f, flow = Flow.maxflow graph source sink in
+      let cut_edges = min_cut graph source sink flow_f in
+
+      let ps = List.map cut_edges ~f:(fun e -> Hashtbl.find_exn edge_mapping (to_int (EG.V.label (EG.E.src e)), to_int (EG.V.label (EG.E.dst e)))) in
+      Proof.RV (Proof.VStar (Fdeque.of_list ps)) )
     in
 
     (* Handle "C(i, j, r*)" *)
