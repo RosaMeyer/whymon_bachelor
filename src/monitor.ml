@@ -1441,10 +1441,16 @@ module Prex = struct
     (* Helper for Kleene star case below - page 42 Yuan's thesis *)                                                            
     let do_star i j r =
       (* Generate all pairs (k, l) such that i <= k < l <= j *)
+      (* Printf.printf "i:%d and j:%d \n" i j;
+      Stdlib.flush_all (); *)
+
       let pairs = List.concat (
         List.map 
           (List.init (j - i) (fun x -> i + x))  
-          (fun k -> List.map (List.init (j - k - 1) (fun x -> k + x + 1)) (fun l -> ((k, l), eval_r tp k l r es)))) in
+          (fun k -> List.map (List.init (j - k) (fun x -> k + x + 1)) (fun l -> ((k, l), eval_r tp k l r es)))) in
+    
+    (* List.iter pairs ~f:(fun ((i, j), _) -> Printf.printf "List of pairs: i:%d and j:%d \n" i j);
+    Stdlib.flush_all (); *)
 
       (* Define E+ and E- *)
       let e_plus =
@@ -1453,43 +1459,50 @@ module Prex = struct
         List.map (List.filter (pairs) (fun (_, rp) -> Proof.isRV rp)) ~f:(fun (kl, rp) -> (kl, Proof.unRV rp)) in 
 
       (* Define the set of vertices V *)
-      let v = List.init (j - i) (fun x -> i + x) in
+      let v = List.init (j - i + 1) (fun x -> i + x) in
     
       (* Construct the weighted graph G' - initialize an empty graph *)
       let graph = G.create () in
+
+      List.iter v ~f:(fun v -> G.add_vertex graph (G.V.create v));
        
       (* Add edges with weights to the graph *)
-      List.iter e_plus (fun ((k, l), rp) -> G.add_edge_e graph (G.E.create (G.V.create k) (Proof.Size.size_rp (Proof.RS rp)) (G.V.create l)));
+      List.iter e_plus (fun ((k, l), rp) -> G.add_edge_e graph (G.E.create (G.find_vertex graph k) (Proof.Size.size_rp (Proof.RS rp)) (G.find_vertex graph l)));
     
       let collect_edges graph =
         G.fold_edges_e (fun e acc -> e :: acc) graph [] |> List.rev in
       
-      Printf.printf "\nMinimum cut edges:\n";
+      (* Printf.printf "\nMinimum cut edges:\n";
       List.iter (collect_edges graph) (fun e ->
         let u = G.E.src e in
         let v = G.E.dst e in
         Printf.printf "Edge from v%d to v%d\n"
           (G.V.label u)
           (G.V.label v)
-      );
+      ); *)
+    
+      (* Stdio.printf "i:%d and j:%d \n" i j;*)
 
       (* Check if i and j are connected in G' *)
       try 
-        let path, _ = G.shortest_path graph (G.V.create i) (G.V.create j) in
+        let path, _ = G.shortest_path graph (G.find_vertex graph i) (G.find_vertex graph j) in
         let proofs = List.map path (fun e -> snd (List.find_exn e_plus ~f:(fun ((k', l'), rp) -> Int.equal k' (G.V.label (G.E.src e)) && Int.equal l' (G.V.label (G.E.dst e))))) in 
         Proof.RS (Proof.SStar (Fdeque.of_list proofs))
-      with _ -> 
+      with Not_found ->  
 
       ( let edge_mapping = Hashtbl.of_alist_exn (module struct type t = int * int [@@deriving compare, sexp_of, hash] end) e_minus in
       
       let graph = EG.create () in 
+      
+      let map = Hashtbl.create (module Int) in
+      List.iter v ~f:(fun v -> let v' = EG.V.create (Int v) in EG.add_vertex graph v'; Hashtbl.add_exn map v v');
        
       (* Add edges with weights to the graph *)
-      List.iter e_plus (fun ((k, l), rp) -> EG.add_edge_e graph (EG.E.create (EG.V.create (Int k)) (Inf) (EG.V.create (Int l))));  
-      List.iter e_minus (fun ((k, l), rp) -> EG.add_edge_e graph (EG.E.create (EG.V.create (Int k)) (Int (Proof.Size.size_rp (Proof.RV rp))) (EG.V.create (Int l)))); 
+      List.iter e_plus (fun ((k, l), rp) -> EG.add_edge_e graph (EG.E.create (Hashtbl.find_exn map k) (Inf) (Hashtbl.find_exn map l)));  
+      List.iter e_minus (fun ((k, l), rp) -> EG.add_edge_e graph (EG.E.create (Hashtbl.find_exn map k) (Int (Proof.Size.size_rp (Proof.RV rp))) (Hashtbl.find_exn map l))); 
       
-      let source = EG.V.create (Int i) in
-      let sink = EG.V.create (Int j) in
+      let source = Hashtbl.find_exn map i in
+      let sink = Hashtbl.find_exn map j in
 
       let flow_f, flow = Flow.maxflow graph source sink in
       let cut_edges = min_cut graph source sink flow_f in
@@ -1503,7 +1516,7 @@ module Prex = struct
       if i = j then
         Proof.RS (Proof.SStarEps i) 
       else
-        let do_star' = do_star i j mr in
+        let do_star' = do_star i j r in
         do_star'
     in
 
