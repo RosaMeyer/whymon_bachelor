@@ -102,7 +102,7 @@ let quant_check x f =
         | Star r -> regex_quant r                              (* Star only depends on the free variables in r *)
   in
   if not (quant_check_rec f) then
-    raise (Invalid_argument (Printf.sprintf "bound variable %s does not appear in subformula" x))
+    raise (Invalid_argument (Printf.sprintf "Bound variable %s does not appear in subformula" x))
 
 let rec equal x y = match x, y with
   | TT, TT | FF, FF -> true
@@ -232,6 +232,7 @@ let rec subfs_dfs h = match h with
   | Frex (_, r)
     | Prex (_, r) -> [Either.first h] @ (subfs_dfs_regex r)
 
+(* Added *)
 and subfs_dfs_regex = function
   | Wild -> [Either.second Wild]                        (* Wild has no subformulas *)
   | Test f -> [Either.second (Test f)] @ (subfs_dfs f)  (* Test has a subformula f *)
