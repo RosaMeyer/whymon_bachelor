@@ -29,7 +29,7 @@ module Checker : sig
     SPlusR of 'a rsproof | STimes of 'a rsproof * 'a rsproof | SStar_eps of nat
     | SStar of 'a rsproof list
   type 'a rvproof = VSkip of nat * nat | VTest of 'a | VTest_neq of nat * nat |
-    VPlus of 'a rvproof * 'a rvproof | VTimes of (bool * 'a rvproof) list |
+    VPlus of 'a rvproof * 'a rvproof | VTimes of (bool * 'a rvproof) list | (* TODO: This is what you should look at for the extension! *)
     VStar of 'a rvproof list | VStar_gt of nat * nat
   type ('a, 'b) sproof = STT of nat | SPred of nat * 'a * ('a, 'b) trm list |
     SEq_Const of nat * 'a * 'b | SNeg of ('a, 'b) vproof |

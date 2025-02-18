@@ -61,6 +61,7 @@ module Checker_interface = struct
     let part_lst = List.map part ~f:(fun (coset, vp) ->
                        (to_fset coset, convert_vp vp)) in
     abs_part (part_lst)
+    (* TODO: convert types / extend *)
   and convert_sp (sp: Proof.sp) : ((string, event_data) sproof) = match sp with
     | STT tp -> STT (nat_of_int tp)
     | SEqConst (tp, x, c) -> SEq_Const (nat_of_int tp, x, to_event_data c)
