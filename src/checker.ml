@@ -25,7 +25,7 @@ module Checker : sig
     Since of ('a, 'b) formula * i * ('a, 'b) formula |
     Until of ('a, 'b) formula * i * ('a, 'b) formula |
     MatchP of i * ('a, 'b) formula regex | MatchF of i * ('a, 'b) formula regex
-  type 'a rsproof = SSkip of nat * nat | STest of 'a | SPlusL of 'a rsproof |
+  type 'a rsproof = SSkip of nat * nat | STest of 'a | SPlusL of 'a rsproof | 
     SPlusR of 'a rsproof | STimes of 'a rsproof * 'a rsproof | SStar_eps of nat
     | SStar of 'a rsproof list
   type 'a rvproof = VSkip of nat * nat | VTest of 'a | VTest_neq of nat * nat |
