@@ -112,7 +112,7 @@ module Proof : sig
     | VTest of vp  
     | VTestNeq of int * int  
     | VPlus of rvp * rvp
-    | VConcat of rvp Fdeque.t
+    | VConcat of (bool * rvp) Fdeque.t
     | VStar of rvp Fdeque.t
 
   type t = S of sp | V of vp

@@ -135,6 +135,9 @@ module Checker_interface = struct
     | VUntilInf (tp, ltp, vp2s) ->
        let vp2s' = List.rev(Fdeque.fold vp2s ~init:[] ~f:(fun acc vp2 -> (convert_vp vp2)::acc)) in
        VUntilInf (nat_of_int tp, nat_of_int ltp, vp2s')
+    (* Added/TODO: cases for regexes matching checker.ml *)
+
+
 
   let rec convert_pdt_part part =
     let part_lst = List.map part ~f:(fun (coset, pdt) ->

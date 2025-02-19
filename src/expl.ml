@@ -128,7 +128,7 @@ module Part = struct
 
   let split_list_dedup p_eq part = List.map (split_list part) ~f:(dedup p_eq)
 
-  (* Added: after join_parts and merge_parts from N-ary mail from Dmitriy *) 
+  (* Added: see join_parts and merge_parts from N-ary mail from Dmitriy *) 
   let rec join_parts ps = match ps with 
     | [] -> trivial []
     | [p] -> List.map ~f:(fun (sub, x) -> (sub, [x])) p
@@ -215,12 +215,14 @@ predicate logic, and more advanced features like handling regular expressions *)
     | SConcat of rsp * rsp        
     | SStarEps of int               
     | SStar of rsp Fdeque.t
-    and rvp =
+  and rvp =
     | VWild of int * int
     | VTest of vp  
     | VTestNeq of int * int  
     | VPlus of rvp * rvp
-    | VConcat of rvp Fdeque.t
+    (* | VConcat of rvp Fdeque.t *)
+    | VConcat of (bool * rvp) Fdeque.t (* Changed to match VTimes from rvproof in checker.ml *)
+    (* | VConcat of (bool * rvp Fdeque.t) list *)
     | VStar of rvp Fdeque.t
 
   type t = S of sp | V of vp 
@@ -347,8 +349,10 @@ predicate logic, and more advanced features like handling regular expressions *)
     | VTest vp, VTest vp' -> v_equal vp vp'
     | VTestNeq (tp1, tp2), VTestNeq (tp1', tp2') -> Int.equal tp1 tp1' && Int.equal tp2 tp2'
     | VPlus (r1, r2), VPlus (r1', r2') -> rvp_equal r1 r1' && rvp_equal r2 r2'
+    (* | VConcat rs, VConcat rs' -> Int.equal (Fdeque.length rs) (Fdeque.length rs') &&
+                                       Etc.fdeque_for_all2_exn rs rs' ~f:(fun r r' -> rvp_equal r r')  *)
     | VConcat rs, VConcat rs' -> Int.equal (Fdeque.length rs) (Fdeque.length rs') &&
-                                       Etc.fdeque_for_all2_exn rs rs' ~f:(fun r r' -> rvp_equal r r')
+                                       Etc.fdeque_for_all2_exn rs rs' ~f:(fun (b, rvp) (b', rvp') -> rvp_equal rvp rvp') (* Changed to match VTimes from rvproof in checker.ml *)
     | VStar rs, VStar rs' -> Int.equal (Fdeque.length rs) (Fdeque.length rs') && 
                                Etc.fdeque_for_all2_exn rs rs' ~f:(fun r r' -> rvp_equal r r')
     | _ -> false
@@ -505,12 +509,15 @@ predicate logic, and more advanced features like handling regular expressions *)
     | VTest vp -> (v_at vp, v_at vp)
     | VTestNeq (tp1, tp2) -> (tp1, tp2)
     | VPlus (rvp1, _) -> vr_at rvp1
-    | VConcat rvps -> let (tp1, _) = vr_at (Fdeque.peek_front_exn rvps) in
-                      let (_, tp4) = vr_at (Fdeque.peek_back_exn rvps) in
+    | VConcat rvps -> (* let (tp1, _) = vr_at (Fdeque.peek_front_exn rvps) in
+                      let (_, tp4) = vr_at (Fdeque.peek_back_exn rvps) in (tp1, tp4) *)
+                      (* Changed to match VTimes from rvproof in checker.ml *)
+                      let (tp1, _) = vr_at (snd (Fdeque.peek_front_exn rvps)) in
+                      let (_, tp4) = vr_at (snd (Fdeque.peek_back_exn rvps)) in
                       (tp1, tp4)
     | VStar rvps -> let (tpls, tprs) = List.unzip (Fdeque.to_list (Fdeque.map rvps ~f:vr_at)) in
                     (Option.value_exn (List.min_elt tpls ~compare:Int.compare), Option.value_exn (List.max_elt tprs ~compare:Int.compare))
-                    
+
   let p_at = function
     | S s_p -> s_at s_p
     | V v_p -> v_at v_p
@@ -630,7 +637,8 @@ predicate logic, and more advanced features like handling regular expressions *)
     | VTest vp -> Printf.sprintf "%sVTest{%d}\n%s" indent (v_at vp) (v_to_string indent vp)
     | VTestNeq (tp1, tp2) -> Printf.sprintf "%sVTestNeq{%d, %d}" indent tp1 tp2
     | VPlus (rvp1, rvp2) -> Printf.sprintf "%sVPlus{%d}\n%s\n%s" indent (fst (vr_at rvp1)) (vr_to_string indent rvp1) (vr_to_string indent rvp2)
-    | VConcat rvps -> Printf.sprintf "%sVConcat{%d}\n%s" indent (fst (vr_at (Fdeque.peek_front_exn rvps))) (Etc.deque_to_string indent vr_to_string rvps)
+    (* | VConcat rvps -> Printf.sprintf "%sVConcat{%d}\n%s" indent (fst (vr_at (Fdeque.peek_front_exn rvps))) (Etc.deque_to_string indent vr_to_string rvps) *)
+    | VConcat rvps -> failwith "Fail" (* TODO: QUESTION: Printf.sprintf "%sVConcat{%d}\n%s" indent (fst (vr_at (snd (Fdeque.peek_front_exn rvps)))) (Etc.deque_to_string indent (fun (_, rvp) -> vr_to_string indent rvp) rvps) *)
     | VStar rvps -> Printf.sprintf "%sVStar{%d}\n%s" indent (fst (vr_at (Fdeque.peek_front_exn rvps))) (Etc.deque_to_string indent vr_to_string rvps)
 
   let to_string indent = function
@@ -931,8 +939,8 @@ predicate logic, and more advanced features like handling regular expressions *)
       | VTest vp -> 1 + v vp
       | VTestNeq (_, _) -> 1
       | VPlus (vrp1, vrp2) -> 1 + vr vrp1 + vr vrp2
-      | VConcat vrps
-        | VStar vrps -> 1 + sum vr vrps (* List of regex proofs *)
+      | VConcat vrps -> 1 + sum (fun (_, rvp) -> vr rvp) vrps (* Changed to match VTimes in checker.ml *)
+      | VStar vrps -> 1 + sum vr vrps (* List of regex proofs *)
 
     let size_p = function
       | S s_p -> s s_p
