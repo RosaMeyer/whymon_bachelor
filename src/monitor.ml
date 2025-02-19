@@ -1431,12 +1431,27 @@ module Prex = struct
           else
             None))
       else
-        let qs = List.map (List.range 0 (j - i + 1)) ~f:(fun k ->
-          let ps0_k = List.nth_exn ps0 k in
-          let ps1_k = List.nth_exn ps1 k in
+        (* let qs = List.map (List.range 0 (j - i + 1)) ~f:(fun k ->
+          let ps0_k = List.nth_exn ps0 k in 
+          let ps1_k = List.nth_exn ps1 k in 
           Proof.unRV (minrp_list (List.filter [ps0_k; ps1_k] ~f:Proof.isRV))) in
-        Proof.RV (Proof.VConcat (Fdeque.of_list qs))
-    in 
+        Proof.RV (Proof.VConcat (Fdeque.of_list qs)) *)
+        
+        (* Added/changed on 19/02 to match VTimes in checker.ml. The Boolean should be true if the corresponding proof belongs to the subregex r and false if it belongs to the subregex s *)
+        let qs = List.map (List.range 0 (j - i + 1)) ~f:(fun k ->
+        let ps0_k = List.nth_exn ps0 k in  (* Proof from r *)
+        let ps1_k = List.nth_exn ps1 k in  (* Proof from s *)
+
+        let min_rv = minrp_list (List.filter [ps0_k; ps1_k] ~f:Proof.isRV) in
+        let unwrapped_rv = Proof.unRV min_rv in
+
+        (* Determine the boolean flag: true if from subregex r, false if from s *)
+        let belongs_to_r = Proof.isRV ps0_k in  
+        (belongs_to_r, unwrapped_rv)
+      ) in
+      
+      Proof.RV (Proof.VConcat (Fdeque.of_list qs))
+    in
 
     (* Helper for Kleene star case below - page 42 Yuan's thesis *)                                                            
     let do_star i j r =
