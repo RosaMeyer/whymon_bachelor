@@ -304,7 +304,7 @@ let rec preds = function
                                                              if (List.mem acc a ~equal:equal) || (List.mem a1s a ~equal:equal) then acc
                                                              else acc @ [a]) in
                                                List.append a1s a2s
-    (* Added cases for Frex and Prex *)
+  (* Added cases for Frex and Prex *)
   | Frex (_, r)
     | Prex (_, r) -> regex_preds r
 
