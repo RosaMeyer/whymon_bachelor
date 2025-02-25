@@ -61,7 +61,8 @@ module Checker_interface = struct
     let part_lst = List.map part ~f:(fun (coset, vp) ->
                        (to_fset coset, convert_vp vp)) in
     abs_part (part_lst)
-    (* TODO: convert types / extend *)
+
+  (* TODO: convert types / extend *)
   and convert_sp (sp: Proof.sp) : ((string, event_data) sproof) = match sp with
     | STT tp -> STT (nat_of_int tp)
     | SEqConst (tp, x, c) -> SEq_Const (nat_of_int tp, x, to_event_data c)
@@ -93,6 +94,11 @@ module Checker_interface = struct
     | SUntil (sp2, sp1s) ->
        let sp1s' = List.rev(Fdeque.fold sp1s ~init:[] ~f:(fun acc sp1 -> (convert_sp sp1)::acc)) in
        SUntil (sp1s', convert_sp sp2)
+    (* Added/TODO: cases for regexes matching checker.ml *)
+    | SPrex rsp -> SMatchP (convert_rsp rsp) 
+    | SFrex rsp -> SMatchF (convert_rsp rsp)
+
+    (* Added *)
   and convert_vp (vp: Proof.vp) : ((string, event_data) vproof) = match vp with
     | VFF tp -> VFF (nat_of_int tp)
     | VEqConst (tp, x, c) -> VEq_Const (nat_of_int tp, x, to_event_data c)
@@ -136,8 +142,28 @@ module Checker_interface = struct
        let vp2s' = List.rev(Fdeque.fold vp2s ~init:[] ~f:(fun acc vp2 -> (convert_vp vp2)::acc)) in
        VUntilInf (nat_of_int tp, nat_of_int ltp, vp2s')
     (* Added/TODO: cases for regexes matching checker.ml *)
+    | VPrexOut tp -> VMatchPOut (nat_of_int tp)
+    | VPrex (tp, vprs) -> VMatchP (nat_of_int tp, List.map (Fdeque.to_list vprs) ~f:convert_rvp)
+    | VFrex (tp, vprs) -> VMatchF (nat_of_int tp, List.map (Fdeque.to_list vprs) ~f:convert_rvp)
 
+    (* Added *)     
+    and convert_rsp = function
+    | SWild i -> SSkip (nat_of_int i, nat_of_int (i + 1))
+    | STest sp -> STest (convert_sp sp)
+    | SPlusL rsp1 -> SPlusL (convert_rsp rsp1)
+    | SPlusR rsp2 -> SPlusR (convert_rsp rsp2)
+    | SConcat (rsp1, rsp2) -> STimes (convert_rsp rsp1, convert_rsp rsp2)
+    | SStarEps e -> SStar_eps (nat_of_int e)
+    | SStar rsp -> SStar (List.map (Fdeque.to_list rsp) ~f:convert_rsp)
 
+    (* Added *)   
+    and convert_rvp = function
+    | VWild (i, j) -> VSkip (nat_of_int i, nat_of_int j)
+    | VTest vp -> VTest (convert_vp vp)
+    | VTestNeq (_, _) -> VTest_neq (nat_of_int 0, nat_of_int 0)
+    | VPlus (vrp1, vrp2) -> VPlus (convert_rvp vrp1, convert_rvp vrp2)
+    | VConcat vrps ->  VTimes (List.map (Fdeque.to_list vrps) ~f:(fun (b, p) -> (b, convert_rvp p)))
+    | VStar vrps -> VStar (List.map (Fdeque.to_list vrps) ~f:convert_rvp)
 
   let rec convert_pdt_part part =
     let part_lst = List.map part ~f:(fun (coset, pdt) ->
@@ -183,6 +209,18 @@ module Checker_interface = struct
     | Always (i, f) -> Always (convert_interval i, convert_f f)
     | Since (i, f, g) -> Since (convert_f f, convert_interval i, convert_f g)
     | Until (i, f, g) -> Until (convert_f f, convert_interval i, convert_f g)
+    (* Added *)
+    | Prex (i, r) -> MatchP (convert_interval i, convert_r r)
+    | Frex (i, r) -> MatchF (convert_interval i, convert_r r)
+
+
+    (* Added *)
+    and convert_r = function
+    | Wild -> Skip (nat_of_int 1)
+    | Test f -> Test (convert_f f)
+    | Plus (r1, r2) -> Plus (convert_r r1, convert_r r2)
+    | Concat (r1, r2) -> Times (convert_r r1, convert_r r2)
+    | Star r -> Star (convert_r r)
 
   let convert_db db =
     specialized_set (Set.fold db ~init:[] ~f:(fun acc (name, ds) ->

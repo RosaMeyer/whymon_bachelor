@@ -222,7 +222,6 @@ predicate logic, and more advanced features like handling regular expressions *)
     | VPlus of rvp * rvp
     (* | VConcat of rvp Fdeque.t *)
     | VConcat of (bool * rvp) Fdeque.t (* Changed to match VTimes from rvproof in checker.ml *)
-    (* | VConcat of (bool * rvp Fdeque.t) list *)
     | VStar of rvp Fdeque.t
 
   type t = S of sp | V of vp 
@@ -360,6 +359,11 @@ predicate logic, and more advanced features like handling regular expressions *)
   let equal x y = match x, y with
     | S sp, S sp' -> s_equal sp sp'
     | V vp, V vp' -> v_equal vp vp'
+    | _ -> false
+
+  let rp_equal x y = match x, y with
+    | RS rsp, RS rsp' -> rsp_equal rsp rsp'
+    | RV rvp, RV rvp' -> rvp_equal rvp rvp'
     | _ -> false
 
   let unS = function
@@ -521,6 +525,11 @@ predicate logic, and more advanced features like handling regular expressions *)
   let p_at = function
     | S s_p -> s_at s_p
     | V v_p -> v_at v_p
+  
+  (* Added *)
+  let rp_at = function
+    | RS rs_p -> sr_at rs_p
+    | RV rv_p -> vr_at rv_p
 
   let s_ltp = function
     | SUntil (sp2, _) -> s_at sp2
@@ -638,7 +647,7 @@ predicate logic, and more advanced features like handling regular expressions *)
     | VTestNeq (tp1, tp2) -> Printf.sprintf "%sVTestNeq{%d, %d}" indent tp1 tp2
     | VPlus (rvp1, rvp2) -> Printf.sprintf "%sVPlus{%d}\n%s\n%s" indent (fst (vr_at rvp1)) (vr_to_string indent rvp1) (vr_to_string indent rvp2)
     (* | VConcat rvps -> Printf.sprintf "%sVConcat{%d}\n%s" indent (fst (vr_at (Fdeque.peek_front_exn rvps))) (Etc.deque_to_string indent vr_to_string rvps) *)
-    | VConcat rvps -> failwith "Fail" (* TODO: QUESTION: Printf.sprintf "%sVConcat{%d}\n%s" indent (fst (vr_at (snd (Fdeque.peek_front_exn rvps)))) (Etc.deque_to_string indent (fun (_, rvp) -> vr_to_string indent rvp) rvps) *)
+    | VConcat rvps -> Printf.sprintf "%sVConcat{%d}\n%s" indent (fst (vr_at (snd (Fdeque.peek_front_exn rvps)))) (Etc.deque_to_string indent (fun indent (_, rvp) -> vr_to_string indent rvp) rvps)
     | VStar rvps -> Printf.sprintf "%sVStar{%d}\n%s" indent (fst (vr_at (Fdeque.peek_front_exn rvps))) (Etc.deque_to_string indent vr_to_string rvps)
 
   let to_string indent = function

@@ -124,6 +124,7 @@ module Proof : sig
   val equal: t -> t -> bool
   val rsp_equal: rsp -> rsp -> bool
   val rvp_equal: rvp -> rvp -> bool
+  val rp_equal: rt -> rt -> bool
 
   val unS: t -> sp
   val unV: t -> vp
@@ -144,6 +145,7 @@ module Proof : sig
   val sr_at: rsp -> int * int
   val vr_at: rvp -> int * int
   val p_at: t -> int
+  val rp_at: rt -> int * int
 
   val s_ltp: sp -> int
   val v_etp: vp -> int

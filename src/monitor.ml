@@ -1446,7 +1446,7 @@ module Prex = struct
         let unwrapped_rv = Proof.unRV min_rv in
 
         (* Determine the boolean flag: true if from subregex r, false if from s *)
-        let belongs_to_r = Proof.isRV ps0_k in  
+        let belongs_to_r = Proof.rp_equal ps0_k min_rv in 
         (belongs_to_r, unwrapped_rv)
       ) in
       
@@ -1523,7 +1523,9 @@ module Prex = struct
       let cut_edges = min_cut graph source sink flow_f in
 
       let ps = List.map cut_edges ~f:(fun e -> Hashtbl.find_exn edge_mapping (to_int (EG.V.label (EG.E.src e)), to_int (EG.V.label (EG.E.dst e)))) in
-      Proof.RV (Proof.VStar (Fdeque.of_list ps)) )
+      (* List.iter ps ~f:(fun p -> Printf.printf "Checker i:%d and j:%d  \n" (fst (Proof.vr_at p)) (snd (Proof.vr_at p))); *)
+      Proof.RV (Proof.VStar (Fdeque.of_list ps)))
+
     in
 
     (* Handle "C(i, j, r*)" *)
