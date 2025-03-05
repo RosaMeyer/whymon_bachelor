@@ -627,28 +627,28 @@ predicate logic, and more advanced features like handling regular expressions *)
     | VPrexOut i -> Printf.sprintf "%sVPrexOut{%d}" indent i
     | VPrex (tp, rvps) -> Printf.sprintf "%sVPrex{%d}\n%s" indent tp
                            (Etc.deque_to_string indent' vr_to_string rvps)
-    | VFrex (tp, rvps) -> Printf.sprintf "%sVFrex{%d}\n%s" indent' tp 
+    | VFrex (tp, rvps) -> Printf.sprintf "%sVFrex{%d}\n%s" indent tp 
                            (Etc.deque_to_string indent' vr_to_string rvps)
 
     (* Added *)                       
-    and sr_to_string indent = function
-    | SWild tp -> Printf.sprintf "%sSWild{%d}" indent tp
-    | STest sp -> Printf.sprintf "%sSTest{%d}\n%s" indent (s_at sp) (s_to_string indent sp)
-    | SPlusL rsp -> Printf.sprintf "%sSPlusL{%d}\n%s" indent (fst (sr_at rsp)) (sr_to_string indent rsp)
-    | SPlusR rsp -> Printf.sprintf "%sSPlusR{%d}\n%s" indent (fst (sr_at rsp)) (sr_to_string indent rsp)
-    | SConcat (rsp1, rsp2) -> Printf.sprintf "%sSConcat{%d}\n%s\n%s" indent (fst (sr_at rsp1)) (sr_to_string indent rsp1) (sr_to_string indent rsp2)
-    | SStarEps tp -> Printf.sprintf "%sSStarEps{%d}" indent tp
-    | SStar rsps -> Printf.sprintf "%sSStar{%d}\n%s" indent (fst (sr_at (Fdeque.peek_front_exn rsps))) (Etc.deque_to_string indent sr_to_string rsps)
+    and sr_to_string indent = let indent' = "    " ^ indent in function
+    | SWild tp -> Printf.sprintf "%sSWild{%d, %d}" indent tp (tp + 1)
+    | STest sp -> Printf.sprintf "%sSTest{%d, %d}\n%s" indent (s_at sp) (s_at sp) (s_to_string indent' sp)
+    | SPlusL rsp -> Printf.sprintf "%sSPlusL{%d, %d}\n%s" indent (fst (sr_at rsp)) (snd (sr_at rsp)) (sr_to_string indent' rsp)
+    | SPlusR rsp -> Printf.sprintf "%sSPlusR{%d, %d}\n%s" indent (fst (sr_at rsp)) (snd (sr_at rsp)) (sr_to_string indent' rsp)
+    | SConcat (rsp1, rsp2) -> Printf.sprintf "%sSConcat{%d, %d}\n%s\n%s" indent (fst (sr_at rsp1)) (snd (sr_at rsp2)) (sr_to_string indent' rsp1) (sr_to_string indent' rsp2) 
+    | SStarEps tp -> Printf.sprintf "%sSStarEps{%d, %d}" indent tp tp
+    | SStar rsps -> Printf.sprintf "%sSStar{%d, %d}\n%s" indent (fst (sr_at (Fdeque.peek_front_exn rsps))) (snd (sr_at (Fdeque.peek_back_exn rsps))) (Etc.deque_to_string indent' sr_to_string rsps)
 
     (* Added *) 
-    and vr_to_string indent = function
+    and vr_to_string indent = let indent' = "    " ^ indent in function
     | VWild (tp1, tp2) -> Printf.sprintf "%sVWild{%d, %d}" indent tp1 tp2
-    | VTest vp -> Printf.sprintf "%sVTest{%d}\n%s" indent (v_at vp) (v_to_string indent vp)
+    | VTest vp -> Printf.sprintf "%sVTest{%d, %d}\n%s" indent (v_at vp) (v_at vp) (v_to_string indent' vp)
     | VTestNeq (tp1, tp2) -> Printf.sprintf "%sVTestNeq{%d, %d}" indent tp1 tp2
-    | VPlus (rvp1, rvp2) -> Printf.sprintf "%sVPlus{%d}\n%s\n%s" indent (fst (vr_at rvp1)) (vr_to_string indent rvp1) (vr_to_string indent rvp2)
+    | VPlus (rvp1, rvp2) -> Printf.sprintf "%sVPlus{%d, %d}\n%s\n%s" indent (fst (vr_at rvp1)) (snd (vr_at rvp1)) (vr_to_string indent' rvp1) (vr_to_string indent' rvp2)
     (* | VConcat rvps -> Printf.sprintf "%sVConcat{%d}\n%s" indent (fst (vr_at (Fdeque.peek_front_exn rvps))) (Etc.deque_to_string indent vr_to_string rvps) *)
-    | VConcat rvps -> Printf.sprintf "%sVConcat{%d}\n%s" indent (fst (vr_at (snd (Fdeque.peek_front_exn rvps)))) (Etc.deque_to_string indent (fun indent (_, rvp) -> vr_to_string indent rvp) rvps)
-    | VStar rvps -> Printf.sprintf "%sVStar{%d}\n%s" indent (fst (vr_at (Fdeque.peek_front_exn rvps))) (Etc.deque_to_string indent vr_to_string rvps)
+    | VConcat rvps -> Printf.sprintf "%sVConcat{%d, %d}\n%s" indent (fst (vr_at (snd (Fdeque.peek_front_exn rvps)))) (snd (vr_at (snd (Fdeque.peek_back_exn rvps)))) (Etc.deque_to_string indent' (fun indent (b, rvp) -> indent ^ string_of_bool b ^ "\n" ^ vr_to_string indent rvp) rvps)
+    | VStar rvps -> Printf.sprintf "%sVStar{%d, %d}\n%s" indent (fst (vr_at (VStar rvps))) (snd (vr_at (VStar rvps))) (Etc.deque_to_string indent' vr_to_string rvps)
 
   let to_string indent = function
     | S p -> s_to_string indent p
