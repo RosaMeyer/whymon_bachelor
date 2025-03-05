@@ -1383,7 +1383,19 @@ module Prex = struct
         else
           (* Keep the current element, recurse on the rest *)
           (expls, ts)
-  let rec eval_r tp i j mr es = 
+
+  let rec regex_string = function
+    | MRegex.MWild -> "★"
+    | MRegex.MTest i -> Printf.sprintf "?%d" i
+    | MRegex.MPlus (r1, r2) -> Printf.sprintf "%s+%s" (regex_string r1) (regex_string r2)
+    | MRegex.MConcat (r1, r2) -> Printf.sprintf "%s∙%s" (regex_string r1) (regex_string r2)
+    | MRegex.MStar r -> Printf.sprintf "%s*" (regex_string r)
+      
+  let rec eval_r offset tp i j mr es = 
+    let rp = eval_aux offset tp i j mr es in Printf.printf "i in = %d and j in = %d and i out = %d and j out = %d and regex = %s \n" i j (fst (Proof.rp_at rp)) (snd (Proof.rp_at rp)) (regex_string mr);
+    Stdlib.flush_all (); rp      
+
+  and eval_aux offset tp i j mr es = 
       
     (* Handle the "C(i, j, *)" case *)
     let eval_wild i j = 
@@ -1396,7 +1408,8 @@ module Prex = struct
     (* let p := acces es (explanations) *)
     (* Handle the "C(i, j, φ?)" case *)
     let eval_test i j phi =
-      let p = List.nth_exn (List.nth_exn es phi) (i - tp) in
+      if i <> j then Proof.RV (Proof.VTestNeq (i, j)) else 
+      let p = List.nth_exn (List.nth_exn es phi) (offset + i - tp) in
       match p with
       | Proof.S p -> Proof.RS (Proof.STest p)
       | Proof.V p -> Proof.RV (Proof.VTest p)
@@ -1413,15 +1426,20 @@ module Prex = struct
 
     (* Handle "C(i, j, r + s)" - QUESTION: O(...)? *)
     let eval_plus i j r1 r2 =
-      let p1 = eval_r tp i j mr es in
-      let p2 = eval_r tp i j mr es in
+      let p1 = eval_r offset tp i j mr es in
+      let p2 = eval_r offset tp i j mr es in
       do_sum p1 p2
     in
 
     (* Handle "C(i, j, r · s)" *)
     let eval_concat i j r s =
-      let ps0 = List.init (j - i + 1) ~f:(fun k -> eval_r tp i (i + k) r es) in
-      let ps1 = List.init (j - i + 1) ~f:(fun k -> eval_r tp (i + k) j s es) in (* QUESTION: O(j,j,r)? *)
+      let ps0 = List.init (j - i + 1) ~f:(fun k -> eval_r offset tp i (i + k) r es) in
+      let ps1 = List.init (j - i + 1) ~f:(fun k -> eval_r offset tp (i + k) j s es) in 
+      
+      Printf.printf "ps0:%d \n" (List.length ps0);
+      Printf.printf "i:%d and j:%d \n" i j;
+      Stdlib.flush_all (); 
+
       if List.exists (List.range 0 (j - i + 1)) ~f:(fun k -> Proof.isRS (List.nth_exn ps0 k) && Proof.isRS (List.nth_exn ps1 k)) then
         minrp_list (List.filter_map (List.range 0 (j - i + 1)) ~f:(fun k ->
           let ps0_k = List.nth_exn ps0 k in
@@ -1462,7 +1480,7 @@ module Prex = struct
       let pairs = List.concat (
         List.map 
           (List.init (j - i) (fun x -> i + x))  
-          (fun k -> List.map (List.init (j - k) (fun x -> k + x + 1)) (fun l -> ((k, l), eval_r tp k l r es)))) in
+          (fun k -> List.map (List.init (j - k) (fun x -> k + x + 1)) (fun l -> ((k, l), eval_r offset tp k l r es)))) in
     
     (* List.iter pairs ~f:(fun ((i, j), _) -> Printf.printf "List of pairs: i:%d and j:%d \n" i j);
     Stdlib.flush_all (); *)
@@ -1545,11 +1563,11 @@ module Prex = struct
     | MRegex.MConcat (r, s) -> eval_concat i j r s
     | MRegex.MStar r -> eval_star i j r
     | _ -> failwith "Unhandled proof type"
-
+    
   let eval vars i ts tp mr (es, tstps) =
     let tstps_in = List.take_while tstps (fun (ts', _) -> Interval.mem (ts - ts') i) in 
     (* QUESTION: might not be correct - outer list vs inner list? *)
-    let pdts = List.map tstps_in ~f:(fun (_, tp') -> Pdt.applyN vars (eval_r tp' tp' tp mr) (List.map es ~f:(Pdt.applyN vars (fun x -> x)))) in 
+    let pdts = List.mapi tstps_in ~f:(fun offset -> fun (_, tp') -> Pdt.applyN vars (eval_r offset tp' tp' tp mr) (List.map es ~f:(Pdt.applyN vars (fun x -> x)))) in 
     (* Stdio.printf "tstps: %d, %d \n" (List.length tstps) (List.length tstps_in); *)
     let z = Pdt.applyN vars (fun ps -> if List.for_all ps ~f:(fun p -> Proof.isRV p) 
       then Proof.V (Proof.VPrex (tp, Fdeque.of_list (List.map ps ~f:Proof.unRV))) 
