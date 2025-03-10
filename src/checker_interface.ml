@@ -148,7 +148,7 @@ module Checker_interface = struct
 
     (* Added *)     
     and convert_rsp = function
-    | SWild i -> SSkip (nat_of_int i, nat_of_int (i + 1))
+    | SWild i -> SSkip (nat_of_int i, nat_of_int 1)
     | STest sp -> STest (convert_sp sp)
     | SPlusL rsp1 -> SPlusL (convert_rsp rsp1)
     | SPlusR rsp2 -> SPlusR (convert_rsp rsp2)
@@ -160,7 +160,7 @@ module Checker_interface = struct
     and convert_rvp = function
     | VWild (i, j) -> VSkip (nat_of_int i, nat_of_int j)
     | VTest vp -> VTest (convert_vp vp)
-    | VTestNeq (_, _) -> VTest_neq (nat_of_int 0, nat_of_int 0)
+    | VTestNeq (i, j) -> VTest_neq (nat_of_int i, nat_of_int j)
     | VPlus (vrp1, vrp2) -> VPlus (convert_rvp vrp1, convert_rvp vrp2)
     | VConcat vrps ->  VTimes (List.map (Fdeque.to_list vrps) ~f:(fun (b, p) -> (b, convert_rvp p)))
     | VStar vrps -> VStar (List.map (Fdeque.to_list vrps) ~f:convert_rvp)
@@ -212,7 +212,6 @@ module Checker_interface = struct
     (* Added *)
     | Prex (i, r) -> MatchP (convert_interval i, convert_r r)
     | Frex (i, r) -> MatchF (convert_interval i, convert_r r)
-
 
     (* Added *)
     and convert_r = function
@@ -316,6 +315,9 @@ module Checker_proof = struct
                             else sp_at (List.last_exn sp1s)
     | SUntil (sp1s, sp2) -> if List.is_empty sp1s then sp_at sp2
                             else sp_at (List.hd_exn sp1s)
+    (* Added: Regular expression cases for s_at *)
+    | SMatchP rsp -> snd (sr_at rsp)
+    | SMatchF rsp -> fst (sr_at rsp) (* check naming *)
   and vp_at = function
     | VFF tp -> tp
     | VEq_Const (tp, _, _) -> tp
@@ -346,6 +348,39 @@ module Checker_proof = struct
     | VSinceInf (tp, _, _) -> tp
     | VUntil (tp, _, _) -> tp
     | VUntilInf (tp, _, _) -> tp
+    (* Added: Regular expression cases for v_at *)
+    | VMatchPOut tp -> tp
+    | VMatchF (tp, _) -> tp (* TODO: double check with Andrei *)
+    | VMatchP (tp, _) -> tp
+
+  (* Added: Function to handle regular expressions for s_at *)
+  and sr_at = function
+    | SSkip (tp, n) -> (tp, sum_nat tp n)
+    | STest sp -> (sp_at sp, sp_at sp)
+    | SPlusL rsp -> sr_at rsp
+    | SPlusR rsp -> sr_at rsp
+    | STimes (rsp1, rsp2) -> let (tp1, _) = sr_at rsp1 in
+                              let (_, tp4) = sr_at rsp2 in
+                              (tp1, tp4) 
+    | SStar_eps tp -> (tp, tp)
+    | SStar rsps -> let (tp1, _) = sr_at (List.hd_exn rsps) in
+                    let (_, tp4) = sr_at (List.last_exn rsps) in
+                    (tp1, tp4)  
+
+  (* Added: Function to handle regular expressions for v_at *)
+  and vr_at = function
+    | VSkip (tp1, tp2) -> (tp1, tp2)
+    | VTest vp -> (vp_at vp, vp_at vp)
+    | VTest_neq (tp1, tp2) -> (tp1, tp2)
+    | VPlus (rvp1, _) -> vr_at rvp1
+    | VTimes rvps -> (* let (tp1, _) = vr_at (Fdeque.peek_front_exn rvps) in
+                      let (_, tp4) = vr_at (Fdeque.peek_back_exn rvps) in (tp1, tp4) *)
+                      (* Changed to match VTimes from rvproof in checker.ml *)
+                      let (tp1, _) = vr_at (snd (List.hd_exn rvps)) in
+                      let (_, tp4) = vr_at (snd (List.last_exn rvps)) in
+                      (tp1, tp4)
+    | VStar rvps -> let (tpls, tprs) = List.unzip (List.map rvps ~f:vr_at) in
+                    (Option.value_exn (List.min_elt tpls ~compare:(fun i j -> Int.compare (int_of_nat i) (int_of_nat j))), Option.value_exn (List.max_elt tprs ~compare:(fun i j -> Int.compare (int_of_nat i) (int_of_nat j))))
 
   let rec sp_to_string indent p =
     let indent' = "\t" ^ indent in
@@ -382,6 +417,9 @@ module Checker_proof = struct
                               (Etc.list_to_string indent' sp_to_string sp1s)
     | SUntil (sp1s, sp2) -> Printf.sprintf "%sSUntil{%d}\n%s\n%s" indent (int_of_nat (sp_at p))
                               (Etc.list_to_string indent' sp_to_string sp1s) (sp_to_string indent' sp2)
+    (* Added: Regex cases *)
+    | SMatchP rsp -> Printf.sprintf "%sSPrex{%d}\n%s" indent (int_of_nat (sp_at p)) (sr_to_string indent' rsp)
+    | SMatchF rsp -> Printf.sprintf "%sSFrex{%d}\n%s" indent (int_of_nat (sp_at p)) (sr_to_string indent' rsp)
   and vp_to_string indent p =
     let indent' = "\t" ^ indent in
     match p with
@@ -422,6 +460,32 @@ module Checker_proof = struct
                                  (Etc.list_to_string indent' vp_to_string vp2s) (vp_to_string indent' vp1)
     | VUntilInf (_, _, vp2s) -> Printf.sprintf "%sVUntilInf{%d}\n%s" indent (int_of_nat (vp_at p))
                                   (Etc.list_to_string indent' vp_to_string vp2s)
+    (* Added: Regex cases *)
+    | VMatchPOut i -> Printf.sprintf "%sVPrexOut{%d}" indent (int_of_nat i)
+    | VMatchP (tp, rvps) -> Printf.sprintf "%sVPrex{%d}\n%s" indent (int_of_nat tp)
+                           (Etc.list_to_string indent' vr_to_string rvps)
+    | VMatchF (tp, rvps) -> Printf.sprintf "%sVFrex{%d}\n%s" indent (int_of_nat tp) 
+                               (Etc.list_to_string indent' vr_to_string rvps)
+    
+    (* Added *)                       
+    and sr_to_string indent = let indent' = "    " ^ indent in function
+    | SSkip (tp, n) -> Printf.sprintf "%sSWild{%d, %d}" indent (int_of_nat tp) ((int_of_nat tp) + (int_of_nat n))
+    | STest sp -> Printf.sprintf "%sSTest{%d, %d}\n%s" indent (int_of_nat (sp_at sp)) (int_of_nat (sp_at sp)) (sp_to_string indent' sp)
+    | SPlusL rsp -> Printf.sprintf "%sSPlusL{%d, %d}\n%s" indent (int_of_nat (fst (sr_at rsp))) (int_of_nat (snd (sr_at rsp))) (sr_to_string indent' rsp)
+    | SPlusR rsp -> Printf.sprintf "%sSPlusR{%d, %d}\n%s" indent (int_of_nat (fst (sr_at rsp))) (int_of_nat (snd (sr_at rsp)))(sr_to_string indent' rsp)
+    | STimes (rsp1, rsp2) -> Printf.sprintf "%sSConcat{%d, %d}\n%s\n%s" indent (int_of_nat (fst (sr_at rsp1))) (int_of_nat (snd (sr_at rsp2))) (sr_to_string indent' rsp1) (sr_to_string indent' rsp2) 
+    | SStar_eps tp -> Printf.sprintf "%sSStarEps{%d, %d}" indent (int_of_nat tp) (int_of_nat tp)
+    | SStar rsps -> Printf.sprintf "%sSStar{%d, %d}\n%s" indent (int_of_nat (fst (sr_at (List.hd_exn rsps)))) (int_of_nat (snd (sr_at (List.last_exn rsps)))) (Etc.list_to_string indent' sr_to_string rsps)
+
+    (* Added *) 
+    and vr_to_string indent = let indent' = "    " ^ indent in function
+    | VSkip (tp1, tp2) -> Printf.sprintf "%sVWild{%d, %d}" indent (int_of_nat tp1) (int_of_nat tp2)
+    | VTest vp -> Printf.sprintf "%sVTest{%d, %d}\n%s" indent (int_of_nat (vp_at vp)) (int_of_nat (vp_at vp)) (vp_to_string indent' vp)
+    | VTest_neq (tp1, tp2) -> Printf.sprintf "%sVTestNeq{%d, %d}" indent (int_of_nat tp1) (int_of_nat tp2)
+    | VPlus (rvp1, rvp2) -> Printf.sprintf "%sVPlus{%d, %d}\n%s\n%s" indent (int_of_nat (fst (vr_at rvp1))) (int_of_nat (snd (vr_at rvp1))) (vr_to_string indent' rvp1) (vr_to_string indent' rvp2)
+    (* | VConcat rvps -> Printf.sprintf "%sVConcat{%d}\n%s" indent (fst (vr_at (Fdeque.peek_front_exn rvps))) (Etc.deque_to_string indent vr_to_string rvps) *)
+    | VTimes rvps -> Printf.sprintf "%sVConcat{%d, %d}\n%s" indent (int_of_nat (fst (vr_at (snd (List.hd_exn rvps))))) (int_of_nat  (snd (vr_at (snd (List.last_exn rvps))))) (Etc.list_to_string indent' (fun indent (b, rvp) -> indent ^ string_of_bool b ^ "\n" ^ vr_to_string indent rvp) rvps)
+    | VStar rvps -> Printf.sprintf "%sVStar{%d, %d}\n%s" indent (int_of_nat (fst (vr_at (VStar rvps)))) (int_of_nat (snd (vr_at (VStar rvps)))) (Etc.list_to_string indent' vr_to_string rvps)
 
   let to_string indent = function
     | Inl p -> sp_to_string indent p
