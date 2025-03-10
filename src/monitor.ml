@@ -1424,7 +1424,7 @@ module Prex = struct
       | Proof.RV p1, Proof.RV p2 -> Proof.RV (Proof.VPlus (p1, p2))
     in 
 
-    (* Handle "C(i, j, r + s)" - QUESTION: O(...)? *)
+    (* Handle "C(i, j, r + s)" *)
     let eval_plus i j r1 r2 =
       let p1 = eval_r offset tp i j mr es in
       let p2 = eval_r offset tp i j mr es in
@@ -1567,9 +1567,9 @@ module Prex = struct
   let eval vars i ts tp mr (es, tstps) =
     let tstps_in = List.take_while tstps (fun (ts', _) -> Interval.mem (ts - ts') i) in 
     (* QUESTION: might not be correct - outer list vs inner list? *)
-    let pdts = List.mapi tstps_in ~f:(fun offset -> fun (_, tp') -> Pdt.applyN vars (eval_r offset tp' tp' tp mr) (List.map es ~f:(Pdt.applyN vars (fun x -> x)))) in 
+    let pdts = List.mapi tstps_in ~f:(fun offset -> fun (_, tp') -> Pdt.applyN_reduce Proof.rp_equal vars (eval_r offset tp' tp' tp mr) (List.map es ~f:(Pdt.applyN vars (fun x -> x)))) in 
     (* Stdio.printf "tstps: %d, %d \n" (List.length tstps) (List.length tstps_in); *)
-    let z = Pdt.applyN vars (fun ps -> if List.for_all ps ~f:(fun p -> Proof.isRV p) 
+    let z = Pdt.applyN_reduce Proof.equal vars (fun ps -> if List.for_all ps ~f:(fun p -> Proof.isRV p) 
       then Proof.V (Proof.VPrex (tp, Fdeque.of_list (List.map ps ~f:Proof.unRV))) 
       else minp_list (List.filter_map ps ~f:(fun p -> if Proof.isRV p 
         then None 
