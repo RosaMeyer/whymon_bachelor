@@ -1161,6 +1161,9 @@ module Pdt = struct
                    else apply2_reduce p_eq vars f (Node (x, part1)) (Node (y, part2))))
     | _ -> raise (Invalid_argument "variable list is empty")
 
+  let applyN_reduce p_eq vars f pdts = 
+    reduce p_eq (applyN vars f pdts) 
+
   let rec split_prod_reduce p_eq = function
     | Leaf (l1, l2) -> (Leaf l1, Leaf l2)
     | Node (x, part) -> let (part1, part2) = Part.split_prod_dedup (equal p_eq) (Part.map part (split_prod_reduce p_eq)) in
