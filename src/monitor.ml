@@ -2100,7 +2100,7 @@ let rec meval vars ts tp (db: Db.t) is_vis = function
      let expls'' = List.map expls' ~f:(Pdt.reduce Proof.equal) in
      let muaux_pdt'' = if is_vis then muaux_pdt' else Pdt.reduce Until.equal muaux_pdt' in
      (expls'', MUntil (i, mf1', mf2', (buf2', ntstps'), muaux_pdt'')) 
-  (* TODO: add MFrex *)
+  (* Added - TODO: add MFrex *)
    | MPrex (i, mr, buft, mfs, es) -> 
      let (zss, mfs') = List.unzip (List.map mfs ~f:(fun mf -> meval vars ts tp db is_vis mf)) in
      let buf' = BufNt.add zss [(ts, tp)] buft in 
