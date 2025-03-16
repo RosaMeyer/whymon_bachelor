@@ -1103,6 +1103,7 @@ module Pdt = struct
     | Leaf l -> l
     | _ -> raise (Invalid_argument "function not defined for nodes")
 
+  (* Added *)  
   let is_Leaf = function
     | Leaf _ -> true
     | Node _ -> false
