@@ -1436,9 +1436,9 @@ module Prex = struct
       let ps0 = List.init (j - i + 1) ~f:(fun k -> eval_r offset tp i (i + k) r es) in
       let ps1 = List.init (j - i + 1) ~f:(fun k -> eval_r offset tp (i + k) j s es) in 
       
-      Printf.printf "ps0:%d \n" (List.length ps0);
+      (* Printf.printf "ps0:%d \n" (List.length ps0);
       Printf.printf "i:%d and j:%d \n" i j;
-      Stdlib.flush_all (); 
+      Stdlib.flush_all (); *)
 
       if List.exists (List.range 0 (j - i + 1)) ~f:(fun k -> Proof.isRS (List.nth_exn ps0 k) && Proof.isRS (List.nth_exn ps1 k)) then
         minrp_list (List.filter_map (List.range 0 (j - i + 1)) ~f:(fun k ->
