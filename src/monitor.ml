@@ -1943,9 +1943,10 @@ let rec meval vars ts tp (db: Db.t) is_vis = function
   | MPredicate (r, trms) ->
      let db' = Set.filter db ~f:(fun evt -> String.equal r (fst(evt))) in
      let maps = Set.fold db' ~init:[] ~f:(fun acc evt -> match_terms trms (snd evt) (Map.empty (module String)) :: acc) in
-     let maps' = List.map (List.filter maps ~f:(fun map_opt -> match map_opt with
+     (* let maps' = List.map (List.filter maps ~f:(fun map_opt -> match map_opt with
                                                                | None -> false
-                                                               | Some(map) -> not (Map.is_empty map)))
+                                                               | Some(map) -> not (Map.is_empty map))) *) (* Merge code from commit c9f9f0e *)
+      let maps' = List.map (List.filter maps ~f:(fun map_opt -> Option.is_some map_opt))
                    ~f:(fun map_opt -> Option.value_exn map_opt) in
      let fv = Set.elements (Formula.fv (Predicate (r, trms))) in
      let fv_vars = List.filter vars ~f:(fun var -> List.mem fv var ~equal:String.equal) in
@@ -2123,7 +2124,8 @@ module MState = struct
 
   let init mf = { mf = mf
                 ; tp_cur = 0
-                ; tp_out = -1
+                (* ; tp_out = -1 *) (* Merge commit 39b6ff9*)
+                ; tp_out = 0
                 ; ts_waiting = Queue.create ()
                 ; tsdbs = Queue.create ()
                 ; tpts = Hashtbl.create (module Int) }
@@ -2153,7 +2155,8 @@ let mstep mode vars ts db (ms: MState.t) is_vis =
   let (expls, mf') = meval vars ts ms.tp_cur db is_vis ms.mf in
   Queue.enqueue ms.ts_waiting ts;
   let tstps = List.zip_exn (List.take (Queue.to_list ms.ts_waiting) (List.length expls))
-                (List.range ms.tp_cur (ms.tp_cur + List.length expls)) in
+                (* (List.range ms.tp_cur (ms.tp_cur + List.length expls)) in *) (* Merge commit 39b6ff9 *)
+                (List.range ms.tp_out (ms.tp_out + List.length expls)) in
   let tsdbs = match mode with
     | Out.Plain.VERIFIED -> Queue.enqueue ms.tsdbs (ts, db); ms.tsdbs
     | _ -> ms.tsdbs in
@@ -2161,6 +2164,7 @@ let mstep mode vars ts db (ms: MState.t) is_vis =
    { ms with
      mf = mf'
    ; tp_cur = ms.tp_cur + 1
+   ; tp_out = ms.tp_out + List.length expls (* Merge commit 39b6ff9 *)
    ; ts_waiting = queue_drop ms.ts_waiting (List.length expls)
    ; tsdbs = tsdbs })
 
