@@ -1,6 +1,6 @@
 # Explainable Monitoring of Regular Expressions
 
-**Rosa Meyer, bahcelor thesis, 2025**
+This is a repository forked from **WhyMon** and is extended as part of a bachelor thesis in Explainable Monitoring of Regular Expressions, at the University of Copenhagen, Department of Computer Science with Dmitriy Traytel as superviser and Leonardo Lima as co-supervisor. 
 
 # WhyMon: explanations as verdicts
 
