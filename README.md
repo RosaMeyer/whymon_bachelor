@@ -1,4 +1,6 @@
-# Explainable Monitoring of Regular Expressions - Rosa Meyer, bahcelor thesis, 2025
+# Explainable Monitoring of Regular Expressions
+
+**Rosa Meyer, bahcelor thesis, 2025**
 
 # WhyMon: explanations as verdicts
 
