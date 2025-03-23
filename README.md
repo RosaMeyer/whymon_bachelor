@@ -2,9 +2,11 @@
 
 This is a repository forked from **WhyMon** and is extended as part of Rosa Haslund Meyer's bachelor thesis (2025) in Explainable Monitoring of Regular Expressions, at the University of Copenhagen, Department of Computer Science with Dmitriy Traytel as superviser and Leonardo Lima as co-supervisor. 
 
+Note, that the below describtion will not differ much from that of the original WhyMon repository. 
+
 # WhyMon: explanations as verdicts
 
-**WhyMon** is a runtime monitoring tool that produces explanations as verdicts of metric first-order temporal logic (MFOTL) formulas.
+The extension of **WhyMon** is a runtime monitoring tool that produces explanations as verdicts of metric first-order dynamic logic (MFODL) formulas.
 
 ## Getting Started
 
@@ -71,19 +73,22 @@ $ ./bin/whymon.exe
 presents **WhyMon**'s CLI usage statement.
 
 To experiment with **WhyMon**'s CLI interface, you can execute the
-`three_attempts` example (introduced in [Lima et al., ATVA'24][4]) that detects unusual authentication
-behavior. In particular, the policy `examples/paper-tool/three_attempts.mfotl`
-specifies that a single user has attempted to login thrice (in intervals between
-1 and 30 seconds) from possibly different countries (based on their IP addresses).
+`three_attempts_copy` example that detects access behavior to some system. In particular, the policy 
+`examples/paper-tool/three_attempts_copy.mfotl` (note that the formula is an MFODL formula)
+specifies a pattern where a single user attempts an action (e.g., authentication or access) tto a system and is 
+then followed by some another event. This formula could for example be used to detect cases where a user initiates 
+an authentication attempt, followed by some other action, which could indicate suspicious behavior such as multiple 
+login attempts, location changes, or additional security checks.
+
 You can run this example with
 
 ```
 $ ./bin/whymon.exe -sig examples/paper-tool/three_attempts.sig \
-                   -formula examples/paper-tool/three_attempts.mfotl \
+                   -formula examples/paper-tool/three_attempts_copy.mfotl \
                    -log examples/paper-tool/three_attempts.log
 ```
 
-**WhyMon** inputs the MFOTL formula `three_attempts.mfotl`, the trace
+**WhyMon** inputs the MFODL formula `three_attempts_copy.mfotl`, the trace
 `three_attempts.log`, and the signature file `three_attempts.sig` that
 specifies the events (and their data parameter types) in the trace.
 
@@ -94,91 +99,82 @@ We distinguish time-points (indices into the trace) and time-stamps,
 which are attached to the time-points and denote real time (e.g., a Unix
 timestamp).
 
-For instance, in this example, at time-point 0 (with time-stamp 4) the
+For instance, in this example, at time-point 1 (with time-stamp 7) the
 explanation is the following
 
 ```
-4:0
-Explanation:
-❮
-
-c1 ∈ Complement of {NO}
+7:1
+Explanation: 
 
     ❮
 
-    c2 ∈ Complement of {}
+    c1 ∈ Complement of {NO}
 
         ❮
 
-        c3 ∈ Complement of {}
+        u ∈ Complement of {}
 
             ❮
 
-                VExists{0}{u}
-
-                    ❮
-
-                    u ∈ Complement of {}
-
-                        VAndL{0}
-                            VPred(0, att, u, c1)
-                    ❯
-
-
+            VPrex{1}
+                [ VConcat{0, 1}
+                    [ true
+                    VTest{0, 0}
+                        VPred(0, att, u, c1)
+                    ; true
+                    VTestNeq{0, 1} ]
+                ; VConcat{1, 1}
+                    [false
+                    VWild{1, 1}] ]
             ❯
         ❯
 
-    ❯
 
-
-c1 ∈ {NO}
-
-    ❮
-
-    c2 ∈ Complement of {}
+    c1 ∈ {NO}
 
         ❮
 
-        c3 ∈ Complement of {}
+        u ∈ Complement of {6}
 
             ❮
 
-                VExists{0}{u}
-
-                    ❮
-
-                    u ∈ Complement of {6}
-
-                        VAndL{0}
-                            VPred(0, att, u, c1)
-
-                    u ∈ {6}
-
-                        VAndR{0}
-                            VOnceOut{0}
-
-                    ❯
-
-
+            VPrex{1}
+                [ VConcat{0, 1}
+                    [ true
+                    VTest{0, 0}
+                        VPred(0, att, u, c1)
+                    ; true
+                    VTestNeq{0, 1} ]
+                ; VConcat{1, 1}
+                    [false
+                    VWild{1, 1}] ]
             ❯
+
+        u ∈ {6}
+
+            ❮
+
+            SPrex{1}
+                SConcat{0, 1}
+                    STest{0, 0}
+                        SPred(0, att, u, c1)
+                    SWild{0, 1}
+            ❯
+
         ❯
 
+
     ❯
-
-
-❯
 ```
 
 Here, `Complement of {}` corresponds to the infinite domain $\mathbb{D}$. Hence,
 `x ∈ Complement of {}` denotes that the variable $x$ can be assigned to any
 value of the domain.
 
-For instance, considering the assignment `c1 ∈ {NO}`, `c2 ∈ Complement of {}`,
-`c3 ∈ Complement of {}`, the associated proof tree corresponds to a violation
-of the existential quantifier for the variable $u$ at time-point 0
-(`VExists{0}{u}`). Specifically, there was no user $u$ (such that `u ∈ Complement
-of {6}`) that attempted to login from the country NO (Norway) at the current
-time-point 0.
+For instance, considering the assignment `c1 ∈ {NO}`,
+`u ∈ {6}`, the associated proof tree corresponds to a satisfication
+of the SPrex construc for the variable $u ∈ {6}$ at time-point 1
+(`SPrex{1}`).
 
 You can also run this example with the option `-mode verified`:
 
@@ -265,7 +261,7 @@ from inside the `formalization` folder. This generates the file
 
 ### Syntax
 
-#### Metric First-Order Temporal Logic
+#### Metric First-Order Dynamic Logic
 ```
 {PRED} ::= string
 
@@ -302,6 +298,12 @@ from inside the `formalization` folder. This generates the file
         | {f} UNTIL{I} {f}      (U)
         | {f} TRIGGER{I} {f}    (T)
         | {f} RELEASE{I} {f}    (R)
+        | FREX{I} {f}           (▷)
+        | PREX{I} {f}           (◁)
+        | PLUS                  (PLUS)
+        | CONCAT                (CONCAT)
+        | ?                     (?)
+        | *                     (*)
 ```
 
 Note that this tool also supports the equivalent Unicode characters (on the right).
@@ -330,4 +332,4 @@ where `0 <= {NAT} <= 2147483647`.
 
 ## License
 
-This project is licensed under the GNU Lesser GPL-3.0 license - see [LICENSE](LICENSE) for details.
+The original WhyMon project is licensed under the GNU Lesser GPL-3.0 license - see [LICENSE](LICENSE) for details.
