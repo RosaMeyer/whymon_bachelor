@@ -1392,8 +1392,8 @@ module Prex = struct
     | MRegex.MStar r -> Printf.sprintf "%s*" (regex_string r)
       
   let rec eval_r offset tp i j mr es = 
-    let rp = eval_aux offset tp i j mr es in Printf.printf "i in = %d and j in = %d and i out = %d and j out = %d and regex = %s \n" i j (fst (Proof.rp_at rp)) (snd (Proof.rp_at rp)) (regex_string mr);
-    Stdlib.flush_all (); rp      
+    let rp = eval_aux offset tp i j mr es in (* Printf.printf "i in = %d and j in = %d and i out = %d and j out = %d and regex = %s \n" i j (fst (Proof.rp_at rp)) (snd (Proof.rp_at rp)) (regex_string mr);
+    Stdlib.flush_all ();*) rp      
 
   and eval_aux offset tp i j mr es = 
       
