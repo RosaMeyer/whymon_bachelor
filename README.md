@@ -1,3 +1,5 @@
+# Explainable Monitoring of Regular Expressions - Rosa Meyer, bahcelor thesis, 2025
+
 # WhyMon: explanations as verdicts
 
 **WhyMon** is a runtime monitoring tool that produces explanations as verdicts of metric first-order temporal logic (MFOTL) formulas.
